@@ -5,7 +5,6 @@ import numpy.polynomial.polynomial as nppp
 import numpy as np
 from scipy import optimize
 from typing import Tuple
-
 import TheiaMCR as MCR
 
 
@@ -241,6 +240,9 @@ class calculations():
         if 'tracking' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL
 
         # extract the focus/zoom tracking polynomial data and interpolate to OD
+        if OD == 0:
+            # divide by zero error
+            OD = 0.001
         invOD = 1000 / OD
         focusStep = int(self.interpolate(self.calData['tracking']['coef'], self.calData['tracking']['cp1'], invOD, zoomStep))
         focusStep += BFL
@@ -466,6 +468,7 @@ class calculations():
         shortDiameter = self.interpolate(self.calData['iris']['coef'], self.calData['iris']['cp1'], FL, irisStep)
 
         # calculate the magnification
+        OD = max(0.001, OD)
         magnification = (FL / 1000) / OD
 
         # calculate min and max object distances
@@ -518,7 +521,7 @@ class calculations():
     # return: focus step difference
     ##### TBD add object distance OD; currently all OD will be included in the fitting together
     def BFLCorrection(self, FL:float, OD:float=1000000) -> int:
-        if self.BFLCorrectionCoeffs == []:
+        if len(self.BFLCorrectionCoeffs) == 0:
             # no correction values set up yet
             return 0
         # calculate the correction step for the focal length
@@ -565,7 +568,7 @@ class calculations():
         xy = np.transpose(self.BFLCorrectionValues)
         # fit the data
         if len(self.BFLCorrectionValues) == 1:
-            # single data point
+            # single data point, constant offset
             self.BFLCorrectionCoeffs = xy[1]
         elif len(self.BFLCorrectionValues) <= 3:
             # linear fit for up to 3 data points
@@ -584,6 +587,8 @@ class calculations():
     # input: NA: numeric aperture
     # return: F/#
     def NA2FNum(self, NA:float) -> float:
+        if NA == 0:
+            return 10000
         return 1 / (2 * NA)
 
     # calculate NA from F/#
@@ -591,6 +596,8 @@ class calculations():
     # input: F/#
     # return: NA
     def FNum2NA(self, fNum:float) -> float:
+        if fNum == 0:
+            return 1    # max possible NA in air
         return 1 / (2 * fNum)
 
     # calcualte angle of view from field of view
