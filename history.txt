@@ -1,0 +1,9 @@
+# to do
+
+
+# revision history
+v.1.0.20 9/21/2023 bug: divide by zero check in OD2FocusStep, calcDoF
+                bug: BFLCorrection array length rather than compare to empty array
+v.1.0.9~19 9/7/2023 bug: fixed to be pip installable
+v.1.0.8 9/5/2023 moved IQSmart out of customer GUI program and created a Python package
+v.1.0.0 6/20/2023 initial version
