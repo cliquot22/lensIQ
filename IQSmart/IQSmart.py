@@ -5,14 +5,13 @@ import numpy.polynomial.polynomial as nppp
 import numpy as np
 from scipy import optimize
 from typing import Tuple
-import TheiaMCR as MCR
 
 
 # These functions are ease of use functions for setting and getting motor step positions
 # and relating them to engineering units.
 # Initialize the class to access the variables.  Then call the loadData function to add the calibration data
 # for use in all the calculations
-class calculations():
+class IQSmart():
     DEFAULT_SPEED = 1000                # default motor (focus/zoom) speed
     DEFAULT_REL_STEP = 1000             # default number of relative steps
     DEFAULT_SPEED_IRIS = 100            # default iris motor speed
@@ -39,7 +38,7 @@ class calculations():
     ### setup functions ###
     def __init__(self):
         self.calData = {}
-        self.COC = calculations.COC
+        self.COC = IQSmart.COC
 
         # back focal length correction values
         self.BFLCorrectionValues = []
@@ -51,8 +50,8 @@ class calculations():
     def loadData(self, calData) -> str:
         self.calData = calData
         if calData == {}:
-            return calculations.ERR_NO_CAL
-        return calculations.OK
+            return IQSmart.ERR_NO_CAL
+        return IQSmart.OK
 
     # load a custom circle of confusion value over the default 0.020mm.
     # A value outside the reasonable range can be set.  The function will return a warning but not prevent it.
@@ -62,8 +61,8 @@ class calculations():
         self.COC = COC
         # check for validity, expecting a value between extremes 0.005mm and 0.100mm
         if COC < 0.005 or COC > 0.100:
-            return calculations.WARN_VALUE
-        return calculations.OK
+            return IQSmart.WARN_VALUE
+        return IQSmart.OK
 
 
     ### ----------------------------------------------- ###
@@ -78,7 +77,7 @@ class calculations():
     # return: (calculated focal length, note, FL Min, FL Max)
     # note: ['OK', 'no cal data', 'FL min', 'FL max']
     def zoomStep2FL(self, zoomStep:int) -> Tuple[float, str, float, float]:
-        if 'FL' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL, 0, 0
+        if 'FL' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
 
         # extract the inverse polynomial coefficients
         coef = self.calData['FL']['coefInv'][0]
@@ -87,13 +86,13 @@ class calculations():
         FL = nppp.polyval(zoomStep, coef)
 
         # validate the response
-        err = calculations.OK
+        err = IQSmart.OK
         flMin = self.calData['flMin']
         flMax = self.calData['flMax']
         if (FL < flMin):
-            err = calculations.ERR_FL_MIN
+            err = IQSmart.ERR_FL_MIN
         elif (FL > flMax):
-            err = calculations.ERR_FL_MAX
+            err = IQSmart.ERR_FL_MAX
         return FL, err, flMin, flMax
 
     # calculate the object distance from the focus step
@@ -108,7 +107,7 @@ class calculations():
     # return: (calculated object distance, note, OD min, OD max)
     # note: ['OK', 'no cal data', 'OD min', 'OD max']
     def focusStep2OD(self, focusStep:int, zoomStep:int, BFL:int=0) -> Tuple[float, str, float, float]:
-        if 'tracking' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL, 0, 0
+        if 'tracking' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
         # calculation range limit constants, don't calculate outside these limits to avoid curve fitting wrap-around
         DONT_CALC_MAX_OVER = 100
         DONT_CALC_MIN_UNDER = 400
@@ -124,18 +123,18 @@ class calculations():
             focusStepList.append(nppp.polyval(zoomStep, coefList[cp1]) + BFL)
 
         # validate the focus step to make sure it is within the valid focus range
-        err = calculations.OK
+        err = IQSmart.OK
         OD = 0
-        ODMin = self.calData['odMin'] if 'odMin' in self.calData.keys() else calculations.OD_MIN_DEFAULT
-        ODMax = self.calData['odMax'] if 'odMax' in self.calData.keys() else calculations.INFINITY
+        ODMin = self.calData['odMin'] if 'odMin' in self.calData.keys() else IQSmart.OD_MIN_DEFAULT
+        ODMax = self.calData['odMax'] if 'odMax' in self.calData.keys() else IQSmart.INFINITY
 
         #   range goes from infinity focus [0] to minimum focus [len(cp1)]
         if focusStep > focusStepList[0] + DONT_CALC_MAX_OVER:
             # likely outside valid focus range
-            err = calculations.ERR_OD_MAX
+            err = IQSmart.ERR_OD_MAX
         elif focusStep < focusStepList[-1] - DONT_CALC_MIN_UNDER:
             # likely outside valid focus range
-            err = calculations.ERR_OD_MIN
+            err = IQSmart.ERR_OD_MIN
         else:
             # fit the focusStepList/cp1List to find the object distance
             coef = nppp.polyfit(focusStepList, cp1List, 3)
@@ -143,9 +142,9 @@ class calculations():
             # validate OD
             if OD < 0:
                 # points >infinity are calculaed as negative
-                err = calculations.ERR_OD_MAX
+                err = IQSmart.ERR_OD_MAX
             elif OD < ODMin:
-                err = calculations.ERR_OD_MIN
+                err = IQSmart.ERR_OD_MIN
         return OD, err, ODMin, ODMax
 
     # calculate the numeric aperture from iris motor step
@@ -157,7 +156,7 @@ class calculations():
     # return: (NA, note, NAMin, NAMax)
     # note: ['OK', 'no cal data', 'NA max', 'NA min']
     def irisStep2NA(self, irisStep:int, FL:float, rangeLimit:bool=True) -> Tuple[float, str, float, float]:
-        if 'AP' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL, 0, 0
+        if 'AP' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
 
         # extract data from calibration data file
         NA = self.interpolate(self.calData['AP']['coef'], self.calData['AP']['cp1'], FL, irisStep)
@@ -172,12 +171,12 @@ class calculations():
         # set the maximum NA to lesser of calculated value from the curve or calibration data value from the file
         NAMax = min(NAMax, NAMaxCal)
         NAMin = max(NAMin, 0.01)
-        err = calculations.OK
+        err = IQSmart.OK
         if NA > NAMax:
-            err = calculations.ERR_NA_MAX
+            err = IQSmart.ERR_NA_MAX
             if rangeLimit: NA = NAMax
         elif NA < NAMin:
-            err = calculations.ERR_NA_MIN
+            err = IQSmart.ERR_NA_MIN
             if rangeLimit: NA = NAMin
         return NA, err, NAMin, NAMax
 
@@ -189,7 +188,7 @@ class calculations():
     # return: (FNum, note, FNumMin, FNumMax)
     # note: ['OK', 'no cal data', 'NA max', 'NA min']
     def irisStep2FNum(self, irisStep:int, FL:float) -> Tuple[float, str, float, float]:
-        if 'AP' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL, 0, 0
+        if 'AP' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
         NA, err, NAMin, NAMax = self.irisStep2NA(irisStep, FL)
         fNum = self.NA2FNum(NA)
         fNumMin = self.NA2FNum(NAMin)
@@ -207,7 +206,7 @@ class calculations():
     # return: (zoomStep, note)
     # note: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max']
     def FL2ZoomStep(self, FL:float) -> Tuple[int, str]:
-        if 'FL' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL
+        if 'FL' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
 
         # extract the polynomial coefficients
         coef = self.calData['FL']['coef'][0]
@@ -216,13 +215,13 @@ class calculations():
         zoomStep = int(nppp.polyval(FL, coef))
 
         # validate the response
-        err = calculations.OK
+        err = IQSmart.OK
         zoomStepMax = self.calData['zoomSteps']
         if (zoomStep < 0):
-            err = calculations.ERR_RANGE_MIN
+            err = IQSmart.ERR_RANGE_MIN
             zoomStep = 0
         elif (zoomStep > zoomStepMax):
-            err = calculations.ERR_RANGE_MAX
+            err = IQSmart.ERR_RANGE_MAX
             zoomStep = zoomStepMax
         return zoomStep, err
 
@@ -237,7 +236,7 @@ class calculations():
     # return: (focusStep, note)
     # note: ('OK' | 'no cal data' | 'out of range-min' | 'out of range-max')
     def OD2FocusStep(self, OD:float, zoomStep:int, BFL:int=0) -> Tuple[int, str]:
-        if 'tracking' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL
+        if 'tracking' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
 
         # extract the focus/zoom tracking polynomial data and interpolate to OD
         if OD == 0:
@@ -248,13 +247,13 @@ class calculations():
         focusStep += BFL
 
         # validate the result
-        err = calculations.OK
+        err = IQSmart.OK
         focusStepMax = self.calData['focusSteps']
         if focusStep < 0:
-            err = calculations.ERR_RANGE_MIN
+            err = IQSmart.ERR_RANGE_MIN
             focusStep = 0
         elif focusStep > focusStepMax:
-            err = calculations.ERR_RANGE_MAX
+            err = IQSmart.ERR_RANGE_MAX
             focusStep = focusStepMax
         return focusStep, err
 
@@ -266,7 +265,7 @@ class calculations():
     # return: (focusStep, note)
     # note: ('OK' | 'no cal data' | 'out of range-min' | 'out of range-max')
     def ODFL2FocusStep(self, OD:float, FL:float, BFL:int=0) -> Tuple[int, str]:
-        if self.calData == {}: return 0, calculations.ERR_NO_CAL
+        if self.calData == {}: return 0, IQSmart.ERR_NO_CAL
         # get the zoom step
         zoomStep, _err = self.FL2ZoomStep(FL)
         focusStep, err = self.OD2FocusStep(OD, zoomStep, BFL)
@@ -280,7 +279,7 @@ class calculations():
     # return: (iris motor step, note)
     # note: ['OK' | 'no cal data' | 'NA min' | 'NA max']
     def NA2IrisStep(self, NA:float, FL:float) -> Tuple[int, str]:
-        if 'AP' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL
+        if 'AP' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
 
         # find 2 closest focal lengths in the calibrated data file to the target
         FLList = np.subtract(self.calData['AP']['cp1'], FL)
@@ -294,7 +293,7 @@ class calculations():
             return nppp.polyval(x, coef) - target
 
         # find the coefficients for each focal length and calcualte the iris step for the target NA
-        err = calculations.OK
+        err = IQSmart.OK
         coef = []
         stepValueList = []
         for f in closestFL:
@@ -307,10 +306,10 @@ class calculations():
                 except RuntimeError as e:
                     # no convergence due to excessively negative NA value
                     stepValue = self.calData['irisSteps']
-                    err = calculations.ERR_NA_MIN
+                    err = IQSmart.ERR_NA_MIN
             else:
                 stepValue = 0
-                err = calculations.ERR_NA_MAX
+                err = IQSmart.ERR_NA_MAX
             stepValueList.append(stepValue)
 
         # interpolate between step values
@@ -324,7 +323,7 @@ class calculations():
     # return (iris motor step, note)
     # note: ['OK' | 'no cal data' | 'NA min' | 'NA max']
     def fNum2IrisStep(self, fNum:float, FL:float) -> Tuple[int, str]:
-        if 'AP' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL
+        if 'AP' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
 
         # calcualte the NA
         NA = self.FNum2NA(fNum)
@@ -345,7 +344,7 @@ class calculations():
     # return: (focusStep, zoomStep, calculated focal length, note)
     # note: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'OD value']
     def AOV2MotorSteps(self, AOV:float, IH:float, OD:float=1000000, BFL:int=0) -> Tuple[int, int, float, str]:
-        if 'dist' not in self.calData.keys(): return 0, 0, 0, calculations.ERR_NO_CAL
+        if 'dist' not in self.calData.keys(): return 0, 0, 0, IQSmart.ERR_NO_CAL
 
         # get the maximum angle of view for each focal length in the calibration data file
         FLLower = None
@@ -379,20 +378,20 @@ class calculations():
         FLValue = FLLower[0] + interpolationFactor * (FLUpper[0] - FLLower[0])
 
         # validate FL range
-        err = calculations.OK
+        err = IQSmart.OK
         if FLValue < self.calData['flMin']:
-            err = calculations.ERR_RANGE_MIN
+            err = IQSmart.ERR_RANGE_MIN
         elif FLValue > self.calData['flMax']:
-            err = calculations.ERR_RANGE_MAX
+            err = IQSmart.ERR_RANGE_MAX
 
         # calculate zoom step from focal length
         zoomStep, _err = self.FL2ZoomStep(FLValue)
 
         # check if object distance is valid
         if isinstance(OD, str):
-            return 0, zoomStep, FLValue, calculations.ERR_OD_VALUE
+            return 0, zoomStep, FLValue, IQSmart.ERR_OD_VALUE
         elif OD < 0:
-            return 0, zoomStep, FLValue, calculations.ERR_OD_VALUE
+            return 0, zoomStep, FLValue, IQSmart.ERR_OD_VALUE
 
         # calculate focus step using focus/zoom curve
         focusStep, _err = self.OD2FocusStep(OD, zoomStep, BFL)
@@ -411,10 +410,10 @@ class calculations():
     # return: (focusStep, zoomStep, calcualted FL, note)
     # note: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'calculation error' | 'OD value']
     def FOV2MotorSteps(self, FOV:float, IH:float, OD:float=1000000, BFL:int=0) -> Tuple[int, int, float, str]:
-        if 'dist' not in self.calData.keys(): return 0, 0, 0, calculations.ERR_NO_CAL
+        if 'dist' not in self.calData.keys(): return 0, 0, 0, IQSmart.ERR_NO_CAL
         AOV = self.FOV2AOV(FOV, OD)
         if AOV == 0:
-            return 0, 0, 0, calculations.ERR_CALC
+            return 0, 0, 0, IQSmart.ERR_CALC
         focusStep, zoomStep, FLValue, err = self.AOV2MotorSteps(AOV, IH, OD, BFL)
         return focusStep, zoomStep, FLValue, err
 
@@ -430,13 +429,13 @@ class calculations():
     # return: (full angle of view (deg), note)
     # note: ['OK', 'no cal data']
     def calcAOV(self, sensorWd:float, FL:float) -> Tuple[float, str]:
-        if 'dist' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL
+        if 'dist' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
         semiWd = sensorWd / 2
 
         # extract the object angle value
         semiAOV = abs(self.interpolate(self.calData['dist']['coef'], self.calData['dist']['cp1'], FL, semiWd))
         AOV = 2 * semiAOV
-        return AOV, calculations.OK
+        return AOV, IQSmart.OK
 
     # calculate field of view
     # calculate the full field of view width in meters
@@ -446,12 +445,12 @@ class calculations():
     # return: (full field of view (m), note)
     # note: ['OK', 'no cal data']
     def calcFOV(self, sensorWd:float, FL:float, OD:float=1000000) -> Tuple[float, str]:
-        if 'dist' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL
+        if 'dist' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
         AOV, _err  = self.calcAOV(sensorWd, FL)
 
         # calcualte the FOV at the object distance
         FOV = 2 * OD * np.tan(np.radians(AOV / 2))
-        return FOV, calculations.OK
+        return FOV, IQSmart.OK
 
     # calcualte depth of field (object distance min/max)
     # calcualte the minimum and maximum object distances.  The difference is the depth of field
@@ -461,8 +460,8 @@ class calculations():
     # return: (depth of field, note, minimum object distance, maximum object distance)
     # note: ['OK' | 'no cal data']
     def calcDOF(self, irisStep:int, FL:float, OD:float=1000000) -> Tuple[float, float, str]:
-        if 'iris' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL, 0, 0
-        if OD >= calculations.INFINITY: return calculations.INFINITY, calculations.OK, calculations.INFINITY, calculations.INFINITY
+        if 'iris' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
+        if OD >= IQSmart.INFINITY: return IQSmart.INFINITY, IQSmart.OK, IQSmart.INFINITY, IQSmart.INFINITY
 
         # extract the aperture size
         shortDiameter = self.interpolate(self.calData['iris']['coef'], self.calData['iris']['cp1'], FL, irisStep)
@@ -473,17 +472,17 @@ class calculations():
 
         # calculate min and max object distances
         # denominator ratios are unitless so calculations are in the units of object distance
-        ODMin = min(OD / (1 + self.COC / (shortDiameter * magnification)), calculations.INFINITY)
-        ODMax = min(OD / (1 - self.COC / (shortDiameter * magnification)), calculations.INFINITY)
-        if ODMax < 0: ODMax = calculations.INFINITY
+        ODMin = min(OD / (1 + self.COC / (shortDiameter * magnification)), IQSmart.INFINITY)
+        ODMax = min(OD / (1 - self.COC / (shortDiameter * magnification)), IQSmart.INFINITY)
+        if ODMax < 0: ODMax = IQSmart.INFINITY
 
         # calculate depth of field
-        if ODMax == calculations.INFINITY:
-            DOF = calculations.INFINITY
+        if ODMax == IQSmart.INFINITY:
+            DOF = IQSmart.INFINITY
         else:
             DOF = ODMax - ODMin
 
-        return DOF, calculations.OK, ODMin, ODMax
+        return DOF, IQSmart.OK, ODMin, ODMax
 
     # calculate full depth of field
     # calculate the full depth of field from nearest object to farthest based on set circle of confusion
@@ -494,7 +493,7 @@ class calculations():
     # return: (depth of field in meters, note)
     # note: ['OK', 'no cal data']
     def calcFullDOF(self, irisStep:int, FL:float, OD:float=1000000) -> Tuple[float, str]:
-        if 'iris' not in self.calData.keys(): return 0, calculations.ERR_NO_CAL
+        if 'iris' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
 
         # extract the aperture size
         shortDiameter = self.interpolate(self.calData['iris']['coef'], self.calData['iris']['cp1'], FL, irisStep)
@@ -504,7 +503,7 @@ class calculations():
 
         # convert to standard meters
         DOF = DOF / 1000
-        return DOF, calculations.OK
+        return DOF, IQSmart.OK
 
 
     ### -------------------------------------- ###
@@ -644,96 +643,3 @@ class calculations():
         interpolatedValue = lowerValue + interpolation_factor * (upperValue - lowerValue)
 
         return interpolatedValue
-
-
-
-##### motor action commands ######
-# These commands are higher level than TheiaMCR module functions.  Errors are checked but not handled
-class motorAction():
-    # initialize the MCR connection
-    # input: comport for MCR controller
-    def __init__(self, comport:str):
-        # check for MCR600 communication by requesting firmware revision from the MCR600 board
-        self.MCRInitialized = True if MCR.MCRInit(comport) > 0 else False
-
-        # motor limits data
-        self.limits = {}
-
-    # initialize motors
-    # return initial step value (PI location)
-    def initFocus(self, steps:int, pi:int, move:bool=True, accel:int=0) -> int:
-        err, pos = MCR.focusInit(steps=steps, pi=pi, move=move, accel=accel)
-        if err < 0: return -1
-        self.limits['focusSteps'] = steps
-        self.limits['focusPI'] = pi
-        return MCR.MCRFocusStep
-
-    def initZoom(self, steps:int, pi:int, move:bool=True, accel:int=0) -> int:
-        err, pos = MCR.zoomInit(steps=steps, pi=pi, move=move, accel=accel)
-        if err < 0: return -1
-        self.limits['zoomSteps'] = steps
-        self.limits['zoomPI'] = pi
-        return MCR.MCRZoomStep
-
-    def initIris(self, steps:int, move) -> int:
-        err, pos = MCR.irisInit(steps=steps, move=move)
-        if err < 0: return -1
-        self.limits['irisSteps'] = steps
-        return MCR.MCRIrisStep
-
-    def initIRC(self) -> int:
-        MCR.IRCInit()
-        return 0
-
-    # motor movements
-    # move focus relative number of steps
-    # input: steps: number of steps to move (+/-)
-    #       speed: motor speed
-    #       regardBacklash: account for BL when moving towards PI
-    # return: the final step number
-    def focusRel(steps:int, speed:int=1000, regardBacklash:bool=True) -> int:
-        err, final = MCR.focusRel(steps, speed=speed, correctForBL=regardBacklash)
-        return final
-
-    def focusAbs(step:int, speed:int=1000, regardBacklash:bool=True) -> int:
-        err, final = MCR.focusAbs(step, speed)
-        return final
-
-    # move zoom relative number of steps
-    # input: steps: number of steps to move (+/-)
-    #       speed: motor speed
-    #       regardBacklash: account for BL when moving towards PI
-    # return: the final step number
-    def zoomRel(steps:int, speed:int=1000, regardBacklash:bool=True) -> int:
-        err, final = MCR.zoomRel(steps, speed=speed, correctForBL=regardBacklash)
-        return final
-
-    def zoomAbs(step:int, speed:int=1000, regardBacklash:bool=True) -> int:
-        err, final = MCR.zoomAbs(step, speed)
-        return final
-
-    # move iris relative number of steps
-    # input: steps: number of steps to move (+/-)
-    #       speed: motor speed
-    # return: the final step number
-    def irisRel(steps:int, speed:int=100) -> int:
-        final = MCR.irisRel(steps, speed=speed)
-        return final
-
-    def irisAbs(step:int, speed:int=100) -> int:
-        final = MCR.irisAbs(step, speed)
-        return final
-
-    # change IRC filter
-    # typical filters are clear (0) and visible bandpass (1)
-    # input: state [0|1]: filter state
-    def IRCState(state:int):
-        MCR.IRCState(state)
-
-    ### validate input parameters ###
-    # validate acceleration value
-    ###### TBD: check for FW revision support and acceleration range (0~32)
-    def validateAccel(self, val:int) -> bool:
-        if val != 0:
-            return False
-        return True
