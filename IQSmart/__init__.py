@@ -6,6 +6,4 @@
 __author__ = 'Mark Peterson'
 __credits__ = 'Theia Technologies'
 
-from IQSmart.IQSmart import calculations
-
-__all__ = ["IQSmart"]
+from IQSmart.IQSmart import *
