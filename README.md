@@ -3,6 +3,10 @@
 
 # Features
 <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="python" width="40" height="40"/> Engineering units can be converted to motor steps and vice versa.  The calculations use the design data for the lens but it is possible to load a calibration data file as well.  
+## Initialization functions
+- loadData: Load the calibration data file. 
+- loadCOC: Change the circle of confusion parameter. 
+- loadSensorWidth: Change the image sensor width. 
 ## Motor steps to engineering units
 - zoomStep2FL: calculate the lens focal length from the current focal length motor step.  
 - focusStep2OD: calculate the object distance at the current focal length from the current focus motor step. 
@@ -19,6 +23,10 @@
 - calcAOV: calculate the angle of view (in deg) from a focal length (in mm).  
 - calcFOV: calcualte the field of view (in m) from the focal length (in mm) and object distance (in m)
 - calcDOF: calculate the minimum and maximum object distances for acceptable focus at the given focal length (in mm), aperture (in iris motor step position), and focused object distance (in m).  
+## Updating functions
+- updateAfterZoom: Update the engineering units to be consistent after a focal length change. 
+- updateAfterFocus: Update the engineering units after a focus (object distance) change. 
+- updateAfterIris: Update the engineering units after an aperture change. 
 ## Camera back focal length compensation
 - BFLCorrection: apply a correction to any focus motor step position to compensate for tolerances in the camera side lens mount.  BFL correction points are made by adjusting the lens for best focus from the calculated focus step position.  The correction is calcualted from a curve through several of these points.  
 - addBFLCorrection, removeBFLCorrectionByIndex: add or remove compensation points to the BFL correction curve.  
@@ -39,4 +47,4 @@ Mark Peterson at Theia Technologies
 [mpeterson@theiatech.com](mailto://mpeterson@theiatech.com)
 
 # Revision
-v.1.1.1
+v.1.2.0

@@ -1,5 +1,7 @@
 
 # revision history
+v.1.2.0 10/23/2023: added updateAfterZoom and similar functions. 
+                added lensConfiguration tracking structure
     v.1.1.1 10/23/2023: bug in init.py due to changing form calculations class to IQSmart class
 v.1.1.0 10/16/2023: removed motorAction class
     v.1.0.20 9/21/2023 bug: divide by zero check in OD2FocusStep, calcDoF
