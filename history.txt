@@ -1,5 +1,11 @@
 
 # revision history
+    v.1.2.8 231024 moved updateLensConfiguration to the sub functions
+                added min, max to lensConfiguration data storage
+                OD == 0 bug in OD2FocusStep
+                Added FL input check to FL2ZoomStep
+                Added OD checking and lensConfiguration updating to AOV2MotorSteps
+                bug zoomStepMax in FL2ZoomStep
 v.1.2.0 10/23/2023: added updateAfterZoom and similar functions. 
                 added lensConfiguration tracking structure
     v.1.1.1 10/23/2023: bug in init.py due to changing form calculations class to IQSmart class

@@ -43,7 +43,7 @@ def app():
     printConfig(IQ)
 
 def printConfig(IQ):
-    for f in ['AOV', 'FOV', 'DOFMin', 'DOFMax', 'FL', 'OD', 'FNum', 'NA']:
+    for f in ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA']:
         log.info(f'  {f} = {IQ.lensConfiguration[f]["value"]:0.2f} (ts {IQ.lensConfiguration[f]["ts"]})')
     for f in ['zoomStep', 'focusStep', 'irisStep']:
         log.info(f'  {f} = {IQ.lensConfiguration[f]["value"]} (ts {IQ.lensConfiguration[f]["ts"]})')
