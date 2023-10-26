@@ -51,7 +51,8 @@ class IQSmart():
         # for the engineering units should be equal or greater than the zoom, focus, or iris motor ts value depenging
         # on which of these three affect the engineering value.  
         # Configuration includes ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA', 'zoomStep', 'focusStep', 'irisStep']
-        # which has 'value', 'min', 'max', and 'ts'.  'min' and 'max' may not always make sense (zoomStep for instance)
+        # which has 'value', 'min', 'max', and 'ts'.  'min' and 'max' may not always make sense (zoomStep for instance).  
+        # 'OD' can be string error 'NA (near)' or 'NA (far)' as well as float value. 
         # DOFMin and DOFMax are the min and max object distances that are in the depth of field. 
         # Also, the current motor steps are stored.  These are used for the calcuations.  
         self.lensConfiguration = {'tsLatest': 0}
@@ -169,9 +170,11 @@ class IQSmart():
         if focusStep > focusStepList[0] + DONT_CALC_MAX_OVER:
             # likely outside valid focus range
             err = IQSmart.ERR_OD_MAX
+            OD = 'NA (far)'
         elif focusStep < focusStepList[-1] - DONT_CALC_MIN_UNDER:
             # likely outside valid focus range
             err = IQSmart.ERR_OD_MIN
+            OD = 'NA (near)'
         else:
             # fit the focusStepList/cp1List to find the object distance
             coef = nppp.polyfit(focusStepList, cp1List, 3)
@@ -180,6 +183,7 @@ class IQSmart():
             if OD < 0:
                 # points >infinity are calculaed as negative
                 err = IQSmart.ERR_OD_MAX
+                OD = self.INFINITY
             elif OD < ODMin:
                 err = IQSmart.ERR_OD_MIN
 
@@ -583,8 +587,8 @@ class IQSmart():
         self.irisStep2FNum(self.lensConfiguration['irisStep']['value'], FL)
 
         # calculate the new focus step
-        if self.lensConfiguration['OD']['value'] > 0:
-            self.OD2FocusStep(FL, self.lensConfiguration['OD']['value'])
+        if not isinstance(self.lensConfiguration['OD']['value'], str) and self.lensConfiguration['OD']['value'] > 0:
+            self.OD2FocusStep(self.lensConfiguration['OD']['value'], zoomStep)
 
             # calcualte FOV and AOV
             self.calcFOV(self.sensorWd, FL, OD=self.lensConfiguration['OD']['value'])
@@ -599,19 +603,24 @@ class IQSmart():
     # field of view, and depth of focus are updated.  
     # There is limited error checking
     # input: focusStep: focus step number
+    #       updateOD (optional: True): recalculate the object distance from the new focus step and save
     # global: write lensConfigutation data
-    def updateAfterFocus(self, focusStep:int):
+    def updateAfterFocus(self, focusStep:int, updateOD:bool=True):
         self.lensConfiguration['tsLatest'] += 1
         self.updateLensConfiguration('focusStep', focusStep)
 
         # calculate the object distance
-        OD, _err, _ODMin, _ODMax= self.focusStep2OD(focusStep, self.lensConfiguration['zoomStep']['value'])
+        if updateOD:
+            OD, _err, _ODMin, _ODMax= self.focusStep2OD(focusStep, self.lensConfiguration['zoomStep']['value'])
+        else:
+            OD = self.lensConfiguration['OD']['value']
 
-        # calculate the field of view
-        self.calcFOV(self.sensorWd, self.lensConfiguration['FL']['value'], OD)
+        if not isinstance(OD, str) and OD > 0:
+            # calculate the field of view
+            self.calcFOV(self.sensorWd, self.lensConfiguration['FL']['value'], OD)
 
-        # calcualte the depth of focus
-        self.calcDOF(self.lensConfiguration['irisStep']['value'], self.lensConfiguration['FL']['value'], OD)
+            # calcualte the depth of focus
+            self.calcDOF(self.lensConfiguration['irisStep']['value'], self.lensConfiguration['FL']['value'], OD)
 
     # updateAfterIris
     # update the engineering unit values after a change in lens aperture step.  F/#, numeric aperture, 
@@ -627,7 +636,7 @@ class IQSmart():
         self.irisStep2FNum(irisStep, self.lensConfiguration['FL']['value'])
         
         # update the field of view and angle of view
-        if self.lensConfiguration['OD']['value'] > 0:
+        if not isinstance(self.lensConfiguration['OD']['value'], str) and self.lensConfiguration['OD']['value'] > 0:
             self.calcDOF(irisStep, self.lensConfiguration['FL']['value'], self.lensConfiguration['OD']['value'])
 
     ### -------------------------------------- ###
@@ -736,10 +745,10 @@ class IQSmart():
     
     # store data in the lensConfig structure
     # input: key: key to store data to
-    #       value: data to store
+    #       value: data to store (may be error value for OD)
     #       min, max (optional): data to store
     # globals: write lensConfiguration
-    def updateLensConfiguration(self, key:str, value:Tuple[float, int], min:Tuple[float, int]=None, max:Tuple[float, int]=None):
+    def updateLensConfiguration(self, key:str, value:Tuple[float, int, str], min:Tuple[float, int]=None, max:Tuple[float, int]=None):
         if key not in self.lensConfiguration:
             return
         self.lensConfiguration[key]['value'] = value
