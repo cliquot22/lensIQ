@@ -1,5 +1,6 @@
 
 # revision history
+    v.1.2.13 231026 added calcAOVLimits function
     v.1.2.11 231024 moved updateLensConfiguration to the sub functions
                 added min, max to lensConfiguration data storage
                 OD == 0 bug in OD2FocusStep

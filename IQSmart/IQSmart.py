@@ -499,9 +499,10 @@ class IQSmart():
     # calculate the full angle
     # input: sensorWd: width of sensor for horizontal AOV
     #       FL: focal length
+    #       saveAOV (optional: True): save the calculated AOV to the data structure
     # return: (full angle of view (deg), note)
     # note: ['OK', 'no cal data']
-    def calcAOV(self, sensorWd:float, FL:float) -> Tuple[float, str]:
+    def calcAOV(self, sensorWd:float, FL:float, saveAOV:bool=True) -> Tuple[float, str]:
         if 'dist' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
         semiWd = sensorWd / 2
 
@@ -510,8 +511,20 @@ class IQSmart():
         AOV = 2 * semiAOV
 
         # save the results
-        self.updateLensConfiguration('AOV', AOV)
+        if saveAOV: self.updateLensConfiguration('AOV', AOV)
         return AOV, IQSmart.OK
+    
+    # calculate the AOV limits for the lens (minimum and maximum)
+    # return: [AOVMin, AOVMax, note]
+    # note: ['OK']
+    def calcAOVLimits(self):
+        flMin = self.calData['flMin']
+        flMax = self.calData['flMax']
+
+        self.lensConfiguration['AOV']['min'], _err = self.calcAOV(self.sensorWd, flMin, saveAOV=False)
+        self.lensConfiguration['AOV']['max'], _err = self.calcAOV(self.sensorWd, flMax, saveAOV=False)
+
+        return self.lensConfiguration['AOV']['min'], self.lensConfiguration['AOV']['max'], IQSmart.OK
 
     # calculate field of view
     # calculate the full field of view width in meters
