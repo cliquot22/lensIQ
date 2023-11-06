@@ -90,7 +90,8 @@ class IQSmart():
     # width to diagonal ratio.  By default this is 0.8 for a 4x3 sensor.  
     # input: width: in mm
     #       ratio (optional): width to diagonal ratio
-    def loadSensorWidth(self, width:float, ratio:float=0):
+    # return: ['OK']
+    def loadSensorWidth(self, width:float, ratio:float=0) -> str:
         if ratio == 0:
             # first parameter is sensor width
             self.sensorWd = width
@@ -404,14 +405,14 @@ class IQSmart():
     # doesn't support the FOV, return an out of range error.
     # Also calculate the focus motor step to keep the lens in focus.
     # If the object distance is not specified, use infinity.
-    # input: AOV: field of view in meters
-    #       IH: image height (sensor width)
+    # input: AOV: field of view in degrees
+    #       sensorWd: image sensor width
     #       OD (optional: infinity): object distance
     #           OD < 0 or OD type string: do not calculate focus motor step position
     #       BFL (optional: 0): back focal length adjustment for focus motor
     # return: (focusStep, zoomStep, calculated focal length, note)
     # note: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'OD value']
-    def AOV2MotorSteps(self, AOV:float, IH:float, OD:float=1000000, BFL:int=0) -> Tuple[int, int, float, str]:
+    def AOV2MotorSteps(self, AOV:float, sensorWd:float, OD:float=1000000, BFL:int=0) -> Tuple[int, int, float, str]:
         if 'dist' not in self.calData.keys(): return 0, 0, 0, IQSmart.ERR_NO_CAL
 
         # get the maximum angle of view for each focal length in the calibration data file
@@ -419,7 +420,7 @@ class IQSmart():
         FLUpper = None
         FLList = np.sort(self.calData['dist']['cp1'])
         for FL in FLList:
-            AOVMax, _err = self.calcAOV(IH, FL)
+            AOVMax, _err = self.calcAOV(sensorWd, FL)
             if AOVMax > AOV:
                 FLLower = [FL, AOVMax]
             elif FLUpper == None:
@@ -430,7 +431,7 @@ class IQSmart():
             # re-calculate to extrapolate focal length
             FLLower = FLUpper
             FL = FLList[1]
-            AOVMax, _err = self.calcAOV(IH, FL)
+            AOVMax, _err = self.calcAOV(sensorWd, FL)
             FLUpper = [FL, AOVMax]
 
         # check if AOV is less than the minimum AOV for the lens (not telephoto enough)
@@ -438,7 +439,7 @@ class IQSmart():
             # recalcualte to extrapolate focal length
             FLUpper = FLLower
             FL = FLList[-2]
-            AOVMax, _err = self.calcAOV(IH, FL)
+            AOVMax, _err = self.calcAOV(sensorWd, FL)
             FLLower = [FL, AOVMax]
 
         # interpolate to get the focal length value
