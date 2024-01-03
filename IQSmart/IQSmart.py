@@ -37,6 +37,50 @@ class IQSmart():
 
     ### setup functions ###
     def __init__(self):
+        '''
+        Theia IQ Smart lens calculations and motor control functions (c)2023 Theia Technologies. 
+        Contact Theia at mpeterson@theiatech.com for more information about this module. 
+
+        ### input
+        - none
+        ### class variables 
+        - COC (optional: 0.020): circle of confusion for calculating depth of field (in mm)
+        - sensorWd (optional: read from default data): image sensor width (in mm)
+        - lensConfiguration: 
+        {
+            'tsLatest': (timestamp value), 
+            (config): 
+            {
+                'value': (number), 
+                'min': (number), 
+                'max': (number), 
+                'ts': (timestamp)
+            }
+        }
+            - 'tsLatest' is the id for the latest update after a calculation set.  Each configuation ('config') of the lens has a local 'ts' that can be compared 
+            to see if the configuration is potentially out of date.  The 'ts' value for the engineering units ('FOV', 'AOV', etc) should be equal or greater than the zoom, 
+            focus, or iris ('irisStep' etc) motor 'ts' value depending on which of these three motor step positions affect the engineering value.  
+            - 'config' includes ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA', 'zoomStep', 'focusStep', 'irisStep'].  Each configuration value has 'value', 'min', 
+            'max', and 'ts'.  'min' and 'max' may not always make sense (zoomStep for instance).  
+            - Configuration 'OD' can be string error 'NA (near)' or 'NA (far)' as well as float value of the set object distance. 
+            - Configurations 'DOFMin' and 'DOFMax' are the minimum and maximum object distances that are in the depth of field. 
+            - Configurations 'zoomStep', 'focusStep', and 'irisStep' are the current motor step positions.  These are used for the engineering unit calcuations.  
+        ### class constants
+        These are possible return values and note values.  
+        - OK = 'OK'
+        - ERR_NO_CAL = 'no cal data'          # no calibration data loaded
+        - ERR_FL_MIN = 'FL min'               # minimum focal length exceeded
+        - ERR_FL_MAX = 'FL max'               # maximum focal length exceeded
+        - ERR_OD_MIN = 'OD min'               # minimum object distance exceeded
+        - ERR_OD_MAX = 'OD max'               # maximum object distance (1000000 (infinity)) exceeded
+        - ERR_OD_VALUE = 'OD value'           # OD not specified
+        - ERR_NA_MIN = 'NA min'               # minimum numerical aperture exceeded
+        - ERR_NA_MAX = 'NA max'               # maximum numerical aperture exceeded
+        - ERR_RANGE_MIN = 'out of range-min'  # out of allowable range
+        - ERR_RANGE_MAX = 'out of range-max'  # out of allowable range
+        - ERR_CALC = 'calculation error'      # calculation error (infinity or divide by zero or other)
+        - WARN_VALUE = 'value warning'        # warning if value seems extreme, possible unit conversion issue
+        '''
         self.calData = {}
         self.COC = IQSmart.COC
         self.sensorWd = 0
@@ -60,9 +104,14 @@ class IQSmart():
             self.lensConfiguration[f] = {'value':0, 'min':0, 'max':0, 'ts':0}
 
     # load the calibration data
-    # Validate there is data in the variable
-    # return: ['OK' | 'no cal data']
     def loadData(self, calData) -> str:
+        '''
+        Validate that the calibration data set is okay.  This function also updates the maximum focus and zoom steps in 'lensConfiguration' and the 'sensorWd' class variable.  
+        ### input
+        - calData: the calibration data set (loaded from default data or calibrated data)
+        ### return
+        ['OK' | 'no cal data']
+        '''
         self.calData = calData
         if calData == {}:
             return IQSmart.ERR_NO_CAL
@@ -73,11 +122,16 @@ class IQSmart():
         self.sensorWd = 0.8 * calData['ihMax']
         return IQSmart.OK
 
-    # load a custom circle of confusion value over the default 0.020mm.
-    # A value outside the reasonable range can be set.  The function will return a warning but not prevent it.
-    # input: value in mm
-    # return: ['OK' | 'value warning']
+    # load a circle of confusion value 
     def loadCOC(self, COC) -> str:
+        '''
+        Load a circle of confusion value to overwrite the default 0.020mm.
+        A value outside the reasonable range can be set.  The function will return a warning but not prevent it.
+        ### input
+        - COC: the circle of confusion (in mm)
+        ### return
+        ['OK' | 'value warning']
+        '''
         self.COC = COC
         # check for validity, expecting a value between extremes 0.005mm and 0.100mm
         if COC < 0.005 or COC > 0.100:
@@ -85,13 +139,18 @@ class IQSmart():
         return IQSmart.OK
     
     # load a custom sensor width
-    # If only one parameter is sent it is the sensor width (in mm).  
-    # If 2 parameters are sent, the fist is the sensor diagonal (in mm) and the second is the 
-    # width to diagonal ratio.  By default this is 0.8 for a 4x3 sensor.  
-    # input: width: in mm
-    #       ratio (optional): width to diagonal ratio
-    # return: ['OK']
     def loadSensorWidth(self, width:float, ratio:float=0) -> str:
+        '''
+        Load the sensor width.  
+        If only one parameter is sent to the function it will be the sensor width (in mm).  
+        If 2 parameters are sent, the first will be the sensor diagonal (in mm) and the second the width to diagonal ratio.  
+        By default, the ratio is 0.8 for a 4x3 sensor.  
+        ### input
+        - width: sensor width or diagonal (in mm)
+        - ratio: (optional): the width to diagonal ratio
+        ### return
+        ['OK']
+        '''
         if ratio == 0:
             # first parameter is sensor width
             self.sensorWd = width
@@ -106,13 +165,18 @@ class IQSmart():
     ### ----------------------------------------------- ###
 
     # calculate the focal length from zoom step
-    # If the calculated focal length is outside the min/max range the value may not be accurate due to curve
-    # fitting extrapolation.  But the note will indicate min/max limits are exceeded.
-    # FLMin and FLMax are read from the calibration data file.  They are not calculated.
-    # input: zoomStep: zoom motor step number
-    # return: (calculated focal length, note, FL Min, FL Max)
-    # note: ['OK', 'no cal data', 'FL min', 'FL max']
     def zoomStep2FL(self, zoomStep:int) -> Tuple[float, str, float, float]:
+        '''
+        Calculate the focal length from zoom step number. 
+        If the calculated focal length is outside the min/max range the value may not be accurate due to curve
+        fitting extrapolation.  The returned note string will indicate min/max limits are exceeded.
+        'FLMin' and 'FLMax' are read from the calibration data file or default calibration data.  They are not calculated.
+        ### input
+        - zoomStep: zoom motor step number
+        ### return
+        [calculated focal length, note, FL Min, FL Max]
+        'note' string value can be: ['OK', 'no cal data', 'FL min', 'FL max']
+        '''
         if 'FL' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
 
         # extract the inverse polynomial coefficients
@@ -135,17 +199,22 @@ class IQSmart():
         return FL, err, flMin, flMax
 
     # calculate the object distance from the focus step
-    # If the calculated OD is not close to the nomial range, return out of bounds errors or else
-    # calculate the value and validate for out of bounds errors (this method should avoid curve fitting anomnolies)
-    # if the min/max limits are exceeded the OD reported may not be accurate.  But the note will
-    # indicate a min/max OD exceeded error.
-    # ODmin is read from the calibration data file, not calculated.
-    # input: focusStep: focus motor step number
-    #       zoomStep: zoom motor step number
-    #       BFL (optional: 0): back focus correction in focus steps
-    # return: (calculated object distance, note, OD min, OD max)
-    # note: ['OK', 'no cal data', 'OD min', 'OD max']
     def focusStep2OD(self, focusStep:int, zoomStep:int, BFL:int=0) -> Tuple[float, str, float, float]:
+        '''
+        Calculate the object distance from the focus step.  
+        If the calculated OD is not close to the nomial range, return out of bounds errors or else
+        calculate the value and validate for out of bounds errors (this method should avoid curve fitting anomnolies)
+        if the min/max limits are exceeded the OD reported may not be accurate.  The returned note string will
+        indicate a min/max OD exceeded error.
+        'ODmin' is read from the calibration data file or default calibration data.  It is not calculated.
+        ### input
+        - focusStep: focus motor step number
+        - zoomStep: zoom motor step number
+        - BFL (optional: 0): back focus correction in focus steps
+        ### return
+        [calculated object distance, note, OD min, OD max]
+        'note' string value can be: ['OK', 'no cal data', 'OD min', 'OD max']
+        '''
         if 'tracking' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
         # calculation range limit constants, don't calculate outside these limits to avoid curve fitting wrap-around
         DONT_CALC_MAX_OVER = 100
@@ -193,14 +262,19 @@ class IQSmart():
         return OD, err, ODMin, ODMax
 
     # calculate the numeric aperture from iris motor step
-    # if the calculated NA is outside the range, return the calculated value but set the note error
-    # to indicate min/max exceeded
-    # input: irisStep: iris motor step number
-    #       FL: focal length
-    #       rangeLimit (optional: True): limit the calcuated value to the range
-    # return: (NA, note, NAMin, NAMax)
-    # note: ['OK', 'no cal data', 'NA max', 'NA min']
     def irisStep2NA(self, irisStep:int, FL:float, rangeLimit:bool=True) -> Tuple[float, str, float, float]:
+        '''
+        Calculate the numeric aperture from iris motor step. 
+        If the calculated numeric aperture (NA) is outside the range, return the calculated value but set the note error
+        to indicate min/max exceeded. 
+        ### input
+        - irisStep: iris motor step number
+        - FL: focal length
+        - rangeLimit (optional: True): limit the calcuated value to the range
+        ### return
+        [NA, note, NAMin, NAMax]
+        'note' string value can be: ['OK', 'no cal data', 'NA max', 'NA min']
+        '''
         if 'AP' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
 
         # extract data from calibration data file
@@ -229,13 +303,18 @@ class IQSmart():
         return NA, err, NAMin, NAMax
 
     # calculate the F/# from the iris motor step
-    # calculations are propogated using numeric aperture to avoid division by zero so this
-    # function calculates NA first and inverts the results
-    # input: irisStep: iris motor step number
-    #       FL: focal length
-    # return: (FNum, note, FNumMin, FNumMax)
-    # note: ['OK', 'no cal data', 'NA max', 'NA min']
     def irisStep2FNum(self, irisStep:int, FL:float, returnNA:bool=False) -> Tuple[float, str, float, float]:
+        '''
+        Calculate the F/# from the iris motor step.  
+        Calculations are propogated using numeric aperture to avoid division by zero so this
+        function calculates NA first and inverts the results. 
+        ### input
+        - irisStep: iris motor step number
+        - FL: focal length
+        ### return
+        [FNum, note, FNumMin, FNumMax]
+        'note' string value can be: ['OK', 'no cal data', 'NA max', 'NA min']
+        '''
         if 'AP' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
         NA, err, NAMin, NAMax = self.irisStep2NA(irisStep, FL)
         fNum = self.NA2FNum(NA)
@@ -252,11 +331,16 @@ class IQSmart():
     ### ----------------------------------------------- ###
 
     # calculate the zoom step from the focal length
-    # Keep the zoom step in the available range.
-    # input: FL: focal length
-    # return: (zoomStep, note)
-    # note: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max']
     def FL2ZoomStep(self, FL:float) -> Tuple[int, str]:
+        '''
+        Calculate the zoom step from the focal length. 
+        Keep the zoom step in the available range.
+        ### input
+        - FL: focal length
+        ### return
+        [zoomStep, note]
+        'note' string value can be: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max']
+        '''
         if 'FL' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
         err = IQSmart.OK
 
@@ -289,16 +373,21 @@ class IQSmart():
         return zoomStep, err
 
     # calculate object distance from focus motor step
-    # Limit the focus motor step to the available range.
-    # maximum object distance input can be 1000000m (infinity).  Minimum object distance
-    # can be 0 but focus motor step may not support this minimum.  Also, the focus/zoom
-    # calculation can cause fitting errors outside the acceptable range.
-    # input: OD: object distance
-    #       zoomStep: current zoom motor step position
-    #       BFL (optional: 0): back focus step adjustment
-    # return: (focusStep, note)
-    # note: ('OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'no OD set')
     def OD2FocusStep(self, OD:float, zoomStep:int, BFL:int=0) -> Tuple[int, str]:
+        '''
+        Calculate object distance from focus motor step. 
+        The focus motor step number will be limited to the available range.
+        Maximum object distance input can be 1000000m (infinity).  Minimum object distance
+        can be 0 but focus motor step may not support this minimum.  Also, the focus/zoom
+        calculation can cause fitting errors outside the acceptable range.
+        ### input
+        - OD: object distance
+        - zoomStep: current zoom motor step position
+        - BFL (optional: 0): back focus step adjustment
+        ### return
+        [focusStep, note]
+        'note' string value can be: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'no OD set']
+        '''
         if 'tracking' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
 
         # extract the focus/zoom tracking polynomial data and interpolate to OD
@@ -324,13 +413,21 @@ class IQSmart():
         return focusStep, err
 
     # calculate object distance from focus motor step
-    # See the description at OD2FocusStep()
-    # input: OD: object distance
-    #       FL: focal length
-    #       BFL (optional: 0): back focus step adjustment
-    # return: (focusStep, note)
-    # note: ('OK' | 'no cal data' | 'out of range-min' | 'out of range-max')
     def ODFL2FocusStep(self, OD:float, FL:float, BFL:int=0) -> Tuple[int, str]:
+        '''
+        Calculate object distance from focus motor step.
+        The focus motor step number will be limited to the available range.
+        Maximum object distance input can be 1000000m (infinity).  Minimum object distance
+        can be 0 but focus motor step may not support this minimum.  Also, the focus/zoom
+        calculation can cause fitting errors outside the acceptable range.
+        ### input
+        - OD: object distance
+        - FL: focal length
+        - BFL (optional: 0): back focus step adjustment
+        ### return
+        [focusStep, note]
+        'note' string value can be: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max']
+        '''
         if self.calData == {}: return 0, IQSmart.ERR_NO_CAL
         # get the zoom step
         zoomStep, _err = self.FL2ZoomStep(FL)
@@ -338,13 +435,18 @@ class IQSmart():
         return focusStep, err
 
     # calculate iris step from numeric aperture
-    # if the numeric aperture is not supported for the current focal length, return the
-    # min/max iris step position and the out of range error.
-    # input: NA: numeric aperture
-    #       FL: current focal length
-    # return: (iris motor step, note)
-    # note: ['OK' | 'no cal data' | 'NA min' | 'NA max']
     def NA2IrisStep(self, NA:float, FL:float) -> Tuple[int, str]:
+        '''
+        Calculate iris step from numeric aperture.
+        If the numeric aperture is not supported for the current focal length, return the
+        min/max iris step position and the out of range error.
+        ### input
+        - NA: numeric aperture
+        - FL: current focal length
+        ### return
+        [iris motor step, note]
+        'note' string value can be: ['OK' | 'no cal data' | 'NA min' | 'NA max']
+        '''
         if 'AP' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
 
         # find 2 closest focal lengths in the calibrated data file to the target
@@ -387,11 +489,16 @@ class IQSmart():
         return irisStep, err
 
     # calcualted the iris motor step from F/#
-    # input: fNum: F/#
-    #       FL: current focal length
-    # return (iris motor step, note)
-    # note: ['OK' | 'no cal data' | 'NA min' | 'NA max']
     def fNum2IrisStep(self, fNum:float, FL:float) -> Tuple[int, str]:
+        '''
+        Calcualte the iris motor step from F/#.
+        ### input
+        - fNum: F/#
+        - FL: current focal length
+        ### return
+        [iris motor step, note]
+        'note' string value can be: ['OK' | 'no cal data' | 'NA min' | 'NA max']
+        '''
         if 'AP' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
 
         # calcualte the NA
@@ -401,18 +508,22 @@ class IQSmart():
         return irisStep, err
 
     # Angle of view to motor steps
-    # calculate the zoom motor step that allows the input angle of view.  If the focal length range
-    # doesn't support the FOV, return an out of range error.
-    # Also calculate the focus motor step to keep the lens in focus.
-    # If the object distance is not specified, use infinity.
-    # input: AOV: field of view in degrees
-    #       sensorWd: image sensor width
-    #       OD (optional: infinity): object distance
-    #           OD < 0 or OD type string: do not calculate focus motor step position
-    #       BFL (optional: 0): back focal length adjustment for focus motor
-    # return: (focusStep, zoomStep, calculated focal length, note)
-    # note: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'OD value']
     def AOV2MotorSteps(self, AOV:float, sensorWd:float, OD:float=1000000, BFL:int=0) -> Tuple[int, int, float, str]:
+        '''
+        Angle of view to motor steps
+        Calculate the zoom motor step that allows the input angle of view.  If the focal length range
+        doesn't support the FOV, return an out of range error.
+        Also calculate the focus motor step to keep the lens in focus.
+        If the object distance is not specified, use infinity. If OD < 0 or OD type is a string, do not calculate focus motor step position. 
+        ### input
+        - AOV: field of view in degrees
+        - sensorWd: image sensor width
+        - OD (optional: infinity): object distance
+        - BFL (optional: 0): back focal length adjustment for focus motor
+        ### return
+        [focusStep, zoomStep, calculated focal length, note]
+        'note' string value can be: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'OD value']
+        '''
         if 'dist' not in self.calData.keys(): return 0, 0, 0, IQSmart.ERR_NO_CAL
 
         # get the maximum angle of view for each focal length in the calibration data file
@@ -473,17 +584,22 @@ class IQSmart():
         return focusStep, zoomStep, FLValue, err
 
     # field of view to motor steps
-    # Calculate the zoom motor step that allows the field of view.  If the focal length
-    # is out of range, return a range error but also the calculated focal length.
-    # The zoom and focus motor steps won't exceed the limits.
-    # input: FOV: field of view in meters
-    #       IH: image height (sensor width)
-    #       OD (optional: infinity): object distance in meters
-    #           OD < 0 or OD type string: do not calculate focus motor step position
-    #       BFL (optional: 0): back focus step adjustment
-    # return: (focusStep, zoomStep, calcualted FL, note)
-    # note: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'calculation error' | 'OD value']
     def FOV2MotorSteps(self, FOV:float, IH:float, OD:float=1000000, BFL:int=0) -> Tuple[int, int, float, str]:
+        '''
+        Field of view to motor steps. 
+        Calculate the zoom motor step that allows the field of view.  If the focal length
+        is out of range, return a range error but also the calculated focal length.
+        The zoom and focus motor steps won't exceed the limits.
+        If OD < 0 or OD type is a string, do not calculate focus motor step position.
+        ### input
+        - FOV: field of view in meters
+        - IH: image height (sensor width)
+        - OD (optional: infinity): object distance in meters
+        - BFL (optional: 0): back focus step adjustment
+        ### return
+        [focusStep, zoomStep, calcualted FL, note]
+        'note' string value can be: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'calculation error' | 'OD value']
+        '''
         if 'dist' not in self.calData.keys(): return 0, 0, 0, IQSmart.ERR_NO_CAL
         AOV = self.FOV2AOV(FOV, OD)
         if AOV == 0:
@@ -497,13 +613,17 @@ class IQSmart():
     ### --------------------------------------- ###
 
     # calculate angle of view
-    # calculate the full angle
-    # input: sensorWd: width of sensor for horizontal AOV
-    #       FL: focal length
-    #       saveAOV (optional: True): save the calculated AOV to the data structure
-    # return: (full angle of view (deg), note)
-    # note: ['OK', 'no cal data']
     def calcAOV(self, sensorWd:float, FL:float, saveAOV:bool=True) -> Tuple[float, str]:
+        '''
+        Calculate angle of view (full angle). 
+        ### input
+        - sensorWd: width of sensor for horizontal AOV
+        - FL: focal length
+        - saveAOV (optional: True): save the calculated AOV to the data structure
+        ### return
+        [full angle of view (deg), note]
+        'note' string value can be: ['OK', 'no cal data']
+        '''
         if 'dist' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
         semiWd = sensorWd / 2
 
@@ -516,9 +636,16 @@ class IQSmart():
         return AOV, IQSmart.OK
     
     # calculate the AOV limits for the lens (minimum and maximum)
-    # return: [AOVMin, AOVMax, note]
-    # note: ['OK']
     def calcAOVLimits(self):
+        '''
+        Calculate the AOV limits for the lens (minimum and maximum). AOV is related to focal length.  
+        'flMin' and 'flMax' are read from the calibration lens data or default calibration data.  
+        ### input
+        - none
+        ### return
+        [AOVMin, AOVMax, note]
+        'note' string value can be: ['OK']
+        '''
         flMin = self.calData['flMin']
         flMax = self.calData['flMax']
 
@@ -528,13 +655,17 @@ class IQSmart():
         return self.lensConfiguration['AOV']['min'], self.lensConfiguration['AOV']['max'], IQSmart.OK
 
     # calculate field of view
-    # calculate the full field of view width in meters
-    # input: sensorWd: width of sensor for horizontal FOV
-    #       FL: focal length
-    #       OD (optional, infinity): object distance
-    # return: (full field of view (m), note)
-    # note: ['OK', 'no cal data']
     def calcFOV(self, sensorWd:float, FL:float, OD:float=1000000) -> Tuple[float, str]:
+        '''
+        Calculate the full field of view width (in meters).
+        ### input
+        - sensorWd: width of sensor for horizontal FOV
+        - FL: focal length
+        - OD (optional, infinity): object distance
+        ### return
+        [full field of view (m), note]
+        'note' string value can be: ['OK', 'no cal data']
+        '''
         if 'dist' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL
         AOV, _err  = self.calcAOV(sensorWd, FL)
 
@@ -545,14 +676,20 @@ class IQSmart():
         self.updateLensConfiguration('FOV', FOV)
         return FOV, IQSmart.OK
 
-    # calcualte depth of field (object distance min/max)
-    # calcualte the minimum and maximum object distances.  The difference is the depth of field
-    # input: irisStep: iris motor step position
-    #       FL: focal length
-    #       OD (optional: infinity): object distance
-    # return: (depth of field, note, minimum object distance, maximum object distance)
-    # note: ['OK' | 'no cal data']
+    # calcualte depth of field
     def calcDOF(self, irisStep:int, FL:float, OD:float=1000000) -> Tuple[float, str, float, float]:
+        '''
+        Calcualte depth of field.
+        Calcualte the minimum and maximum object distances.  The difference is the depth of field.
+        All 3 values are returned becuase minimum object distance is probably the most useful.  
+        ### input
+        - irisStep: iris motor step position
+        - FL: focal length
+        - OD (optional: infinity): object distance
+        ### return
+        [depth of field, note, minimum object distance, maximum object distance]
+        'note' string value can be: ['OK' | 'no cal data']
+        '''
         if 'iris' not in self.calData.keys(): return 0, IQSmart.ERR_NO_CAL, 0, 0
         if OD >= IQSmart.INFINITY: return IQSmart.INFINITY, IQSmart.OK, IQSmart.INFINITY, IQSmart.INFINITY
 
@@ -584,13 +721,18 @@ class IQSmart():
     ### -------------------------------------- ###
 
     # updateAfterZoom
-    # after changing the zoom motor step number, update (recalculate if neccessary) the new
-    # values for focal length, F/# and numeric aperture, field of view, 
-    # and depth of focus.  Store the updated data in lensConfiguration.  
-    # There is limited error checking.  
-    # input: zoomStep: zoom step number
-    # global: write lensConfiguration data
     def updateAfterZoom(self, zoomStep):
+        '''
+        Update after zoom.  
+        After changing the zoom motor step number, update (recalculate if neccessary) the new
+        values for focal length, F/# and numeric aperture, field of view, 
+        and depth of focus.  Store the updated data in lensConfiguration.  
+        There is limited error checking.  
+        ### input
+        - zoomStep: zoom step number
+        ### return
+        none
+        '''
         self.lensConfiguration['tsLatest'] += 1
         self.updateLensConfiguration('zoomStep', zoomStep)
 
@@ -613,13 +755,18 @@ class IQSmart():
             self.calcAOV(self.sensorWd, FL)
 
     # updateAfterFocus
-    # after changing the focus step number, update the new values for engineering units. The object distance, 
-    # field of view, and depth of focus are updated.  
-    # There is limited error checking
-    # input: focusStep: focus step number
-    #       updateOD (optional: True): recalculate the object distance from the new focus step and save
-    # global: write lensConfigutation data
     def updateAfterFocus(self, focusStep:int, updateOD:bool=True):
+        '''
+        Update after focus. 
+        After changing the focus step number, update the new values for engineering units. The object distance, 
+        field of view, and depth of focus are updated.  Store the updated data in the lensConfiguration.  
+        There is limited error checking. 
+        ### input
+        - focusStep: focus step number
+        - updateOD (optional: True): recalculate the object distance from the new focus step and save
+        ### return
+        none
+        '''
         self.lensConfiguration['tsLatest'] += 1
         self.updateLensConfiguration('focusStep', focusStep)
 
@@ -637,12 +784,17 @@ class IQSmart():
             self.calcDOF(self.lensConfiguration['irisStep']['value'], self.lensConfiguration['FL']['value'], OD)
 
     # updateAfterIris
-    # update the engineering unit values after a change in lens aperture step.  F/#, numeric aperture, 
-    # and depth of focus are udpated.  
-    # There is limited error checking
-    # input: irisStep: the iris step number
-    # global: write lensConfiguration data
     def updateAfterIris(self, irisStep:int):
+        '''
+        Update after iris move.  
+        Update the engineering unit values after a change in lens aperture step.  F/#, numeric aperture, 
+        and depth of focus are udpated.   Store the udpated data in the lensConfiguration.  
+        There is limited error checking. 
+        ### input
+        - irisStep: the iris step number
+        ### return
+        none
+        '''
         self.lensConfiguration['tsLatest'] += 1
         self.updateLensConfiguration('irisStep', irisStep)
 
@@ -658,15 +810,22 @@ class IQSmart():
     ### -------------------------------------- ###
 
     # back focal length correction factor
-    # Tolerances in the lens to sensor position will cause an offset in the
-    # focus motor step position.  This function calculates the focus
-    # step correction for the current focal length.
-    # input: FL: focal length
-    #       OD: (optional: infinity): object distance in meters
-    # globals: read BFL correction coefficients to do the fit
-    # return: focus step difference
     ##### TBD add object distance OD; currently all OD will be included in the fitting together
     def BFLCorrection(self, FL:float, OD:float=1000000) -> int:
+        '''
+        Back focal length correction factor. 
+        Whenever focus step is calculated, this function will calculate the correction value (in steps)
+        for the focus motor position at the current focal length. 
+        Tolerances in the lens to sensor position will cause an offset in the
+        focus motor step position. 
+        This function reads stored values from the global 'BFLCorrectionCoefs' to calculate the correction value.  
+        ### input: FL: focal length
+        - OD: (optional: infinity): object distance in meters
+        ### return
+        focus step difference
+        ##### TBD add object distance OD dependence. 
+        Currently all object distances will be included in the fitting together as infinity.  
+        '''
         if len(self.BFLCorrectionCoeffs) == 0:
             # no correction values set up yet
             return 0
@@ -675,13 +834,20 @@ class IQSmart():
         return int(correctionValue)
 
     # store data points for BFL correction
-    # Add a focus shift amount to the list and fit for focal length [[FL, focus shift], [...]]
-    # input: focusStep: focus step position for best focus
-    #       FL: current focal length
-    #       OD: (optional: infinity): current object distance in meters
-    # global data: update BFL correction fit parameters
-    # return: Current set point BFL correction list [[FL, step, OD],[...]]
     def addBFLCorrection(self, focusStep:int, FL:float, OD:float=1000000) -> list:
+        '''
+        Store data points for BFL correction. 
+        With the lens set to an object distance and focal length, the calculated focal step is compared
+        to the set best focus position.  The difference is added to the BFL correction factor list.  
+        Add a focus shift amount to the list and fit for focal length [[FL, focus shift], [...]]. 
+        ### input
+        - focusStep: focus step position for best focus
+        - FL: current focal length
+        - OD: (optional: infinity): current object distance in meters
+        ### return
+        [[FL, step, OD],[...]]
+        Current set point BFL correction list 
+        '''
         # find the default focus step for infinity object distance
         designFocusStep, _err = self.ODFL2FocusStep(OD, FL, BFL=0)
 
@@ -693,11 +859,16 @@ class IQSmart():
         return self.BFLCorrectionValues
 
     # remove BFL correction point
-    # remove a point in the list by index number.
-    # If the index is not in the list then nothing is removed
-    # input: idx: index number (starting at 0) to remove
-    # return: updated set point BFL correction list [[FL, step, OD],[...]]
     def removeBFLCorrectionByIndex(self, idx:int) -> list:
+        '''
+        Remove data points from the BFL correction list. 
+        Remove the data point based on list index.  
+        ### input
+        - idx: index number (0-based) to remove from the list
+        ### return
+        [[FL, step, OD],[...]]
+        Current set point BFL correction list 
+        '''
         if idx < 0 or idx >= len(self.BFLCorrectionValues):
             return self.BFLCorrectionValues
 
@@ -709,8 +880,14 @@ class IQSmart():
         return self.BFLCorrectionValues
 
     # curve fit the BFL correction list
-    # Updates the class variables, no input or return value
     def fitBFLCorrection(self):
+        '''
+        Curve fit the BFL correction list.  Global list variable 'BFLCorrectionCoeffs' list is updated.  
+        ### input
+        none
+        ### return
+        none
+        '''
         xy = np.transpose(self.BFLCorrectionValues)
         # fit the data
         if len(self.BFLCorrectionValues) == 1:
@@ -729,28 +906,43 @@ class IQSmart():
     ### ----------------- ###
 
     # calculate F/# from NA
-    # use the simple inversion formula
-    # input: NA: numeric aperture
-    # return: F/#
     def NA2FNum(self, NA:float) -> float:
+        '''
+        Calculate F/# from NA. 
+        Use the simple inversion formula.  
+        ### input
+        - NA: numeric aperture
+        ### return
+        F/#
+        '''
         if NA == 0:
             return 10000
         return 1 / (2 * NA)
 
     # calculate NA from F/#
-    # use the simple inversion formula
-    # input: F/#
-    # return: NA
     def FNum2NA(self, fNum:float) -> float:
+        '''
+        Calculate NA from F/#. 
+        Use the simple inversion formula.  
+        ### input
+        - F/#: numeric aperture
+        ### return
+        NA
+        '''
         if fNum == 0:
             return 1    # max possible NA in air
         return 1 / (2 * fNum)
 
     # calcualte angle of view from field of view
-    # input: FOV: field of view in meters
-    #       OD (optional: infinity): object distance
-    # return: angle of view
     def FOV2AOV(self, FOV:float, OD:float=1000000) -> float:
+        '''
+        Calcualte angle of view from field of view.
+        ### input
+        - FOV: field of view in meters
+        - OD (optional: infinity): object distance
+        ### return
+        angle of view
+        '''
         # check for 'infinity' input to FOV or OD
         if isinstance(FOV, str) or isinstance(OD, str) or (OD == 0) or (FOV == 0):
             return 0
@@ -758,11 +950,16 @@ class IQSmart():
         return AOV
     
     # store data in the lensConfig structure
-    # input: key: key to store data to
-    #       value: data to store (may be error value for OD)
-    #       min, max (optional): data to store
-    # globals: write lensConfiguration
     def updateLensConfiguration(self, key:str, value:Tuple[float, int, str], min:Tuple[float, int]=None, max:Tuple[float, int]=None):
+        '''
+        Store data in the lensConfig list structure.
+        ### input
+        - key: key to store data to
+        - value: data to store (may be error value for OD)
+        - min, max (optional): data to store
+        ### return
+        none
+        '''
         if key not in self.lensConfiguration:
             return
         self.lensConfiguration[key]['value'] = value
@@ -772,15 +969,20 @@ class IQSmart():
         return 
 
     # interpolate/ extrapolate between two values of control points
-    # this function has coefficients for a polynomial curve at each of the control points cp1.
-    # The curves for the two closest control points around the target are selected and the
-    # xValue is calculated for each.  Then the results are interpolated to get to the cp1 target.
-    # input: coefficient list of lists for all cp1 values
-    #       cp1 control point 1 list corresponding to the coefficients
-    #       target control point target
-    #       x evaluation value
-    # return: interpolated value
     def interpolate(self, coefList:list, cp1List:list, cp1Target:float, xValue:float) -> float:
+        '''
+        Interpolate/ extrapolate between two values of control points. 
+        This function has coefficients for a polynomial curve at each of the control points cp1.
+        The curves for the two closest control points around the target are selected and the
+        'xValue' is calculated for each.  Then the results are interpolated to get to the cp1 target.
+        ### input
+        - coefList: coefficient list of lists for all cp1 values
+        - cp1List: cp1 control point 1 list corresponding to the coefficients
+        - cp1Target: target control point target
+        - xValue: x evaluation value
+        ### return
+        interpolated value
+        '''
         # check for only one data set
         if len(cp1List) <= 1:
             return nppp.polyval(cp1Target, coefList[0])
