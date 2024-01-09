@@ -2,6 +2,8 @@
 Function removeBFLCorrectionByIndex to allow removing all data points
 
 # revision history
+    v.1.2.17 240109 ***renamed from IQSmart to lensIQ***
+    v.1.2.16 240109 license and documentation udpate 
     v.1.2.15 240102 function documentation modifications for Python markdown hints 
     v.1.2.14 231101 corrected IH variable name to sensorWd in AOV2MotorSteps for clarification 
     v.1.2.13 231026 added calcAOVLimits function

@@ -1,15 +1,15 @@
-# Example file for using IQSmart
+# Example file for using lensIQ
 
 import logging as log
-import IQSmart
-import IQSmart.defaultCalData
+import lensIQ
+import lensIQ.defaultCalData
 
 def app():
     # read the default lens data
-    defaultData = IQSmart.defaultCalData.loadDefaultData("TW90")
+    defaultData = lensIQ.defaultCalData.loadDefaultData("TW90")
 
-    # initialize IQSmart
-    IQ = IQSmart.IQSmart()
+    # initialize lensIQ
+    IQ = lensIQ.lensIQ()
     IQ.loadData(defaultData)
 
     # calculate zoom step for focal length 15mm

@@ -1,4 +1,4 @@
-# IQ Smart module for Theia's MCR600 motor control board
+# Theia lens IQ software module for Theia's MCR600 motor control board
 #
 # Theia Technologies
 # https://www.theiatech.com
@@ -6,4 +6,4 @@
 __author__ = 'Mark Peterson'
 __credits__ = 'Theia Technologies'
 
-from IQSmart.IQSmart import *
+from lensIQ.lensIQ import *
