@@ -1,5 +1,5 @@
 # Theia Technologies lens IQ(TM)
-[Theia Technologies](https://www.theiatech.com) offers a [MCR600 motor control board](https://www.theiatech.com/lenses/accessories/mcr/) for interfacing with Theia's motorized lenses.  This board controls focus, zoom, iris, and IRC filter motors.  It can be connected to a host comptuer by USB, UART, or I2C connection.  This lensIQ module allows the user to easily convert from engineering units (meters, degrees) to motor steps applicable to Theia's motorized lenses.  For sending these motor steps to the contorl board via the virtual com port, install the additional package TheiaMCR ([TheiaMCR on Github](https://github.com/cliquot22/TheiaMCR))
+[Theia Technologies](https://www.theiatech.com) offers a [MCR600 motor control board](https://www.theiatech.com/lenses/accessories/mcr/) for interfacing with Theia's motorized lenses.  This board controls focus, zoom, iris, and IRC filter motors.  It can be connected to a host computer by USB, UART, or I2C connection.  This lensIQ module allows the user to easily convert from engineering units (meters, degrees) to motor steps applicable to Theia's motorized lenses.  For sending these motor steps to the control board via the virtual com port, install the additional package TheiaMCR ([TheiaMCR on Github](https://github.com/cliquot22/TheiaMCR))
 
 # Features
 <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="python" width="20" height="20"/> Engineering units can be converted to motor steps and vice versa.  The calculations use the design data for the lens but it is possible to load a specific lens calibration data file as well.  Some conversion examples are: 
@@ -40,7 +40,7 @@ After initializing it is possible to use the functions to convert from engineeri
 # Class variables and constants
 There are constants for error/results values returned from the functions.  More can be found on the [wiki](https://github.com/cliquot22/lensIQ/wiki) page.  
 
-The `lensConfiguration` variable is where the results of calcualtions and motor step positions are stored.  It is a list with format:  
+The `lensConfiguration` variable is where the results of calculations and motor step positions are stored.  It is a list with format:  
 ``` 
         {
             'tsLatest': (timestamp value), 
@@ -53,11 +53,11 @@ The `lensConfiguration` variable is where the results of calcualtions and motor 
             }
         }
 ```  
-- 'tsLatest' is the integer id for the latest update after a calculation set.  Each configuation (see below) of the lens has a local 'ts' that can be compared to see if the configuration is potentially out of date.  The 'ts' value for the engineering units ('FOV', 'AOV', etc) should be equal or greater than the zoom, focus, or iris ('irisStep' etc) motor 'ts' value depending on which of these three motor step positions affect the engineering value.  
+- 'tsLatest' is the integer id for the latest update after a calculation set.  Each configuration (see below) of the lens has a local 'ts' that can be compared to see if the configuration is potentially out of date.  The 'ts' value for the engineering units ('FOV', 'AOV', etc) should be equal or greater than the zoom, focus, or iris ('irisStep' etc) motor 'ts' value depending on which of these three motor step positions affect the engineering value.  
 - 'config' includes ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA', 'zoomStep', 'focusStep', 'irisStep'].  Each configuration value has 'value', 'min', 'max', and 'ts'.  'min' and 'max' may not always make sense (zoomStep for instance).  
 - Object distance configuration 'OD' can be string value 'NA (near)' or 'NA (far)' as well as float value of the set object distance. 
 - Depth of field configurations 'DOFMin' and 'DOFMax' are the minimum and maximum object distances that are in the depth of field. 
-- Configurations 'zoomStep', 'focusStep', and 'irisStep' are the current motor step positions.  These are used for the engineering unit calcuations.  
+- Configurations 'zoomStep', 'focusStep', and 'irisStep' are the current motor step positions.  These are used for the engineering unit calculations.  
 
 # Camera back focal length calibration
 Due to tolerances in the lens mount surface to image sensor (the back focal length or BFL), the focus step needs to be adjusted for the exact camera being used.  This module includes functions to set this BFL calibration.  See Theia's application note [AN004](https://www.theiatech.com/lenses/calibrated-lenses/) for more information on this procedure.  
