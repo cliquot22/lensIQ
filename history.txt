@@ -2,6 +2,7 @@
 Function removeBFLCorrectionByIndex to allow removing all data points
 
 # revision history
+    v.1.2.18 240109 readMe documentation changes
     v.1.2.17 240109 ***renamed from IQSmart to lensIQ***
     v.1.2.16 240109 license and documentation udpate 
     v.1.2.15 240102 function documentation modifications for Python markdown hints 
