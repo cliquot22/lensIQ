@@ -2,6 +2,13 @@
 Function removeBFLCorrectionByIndex to allow removing all data points
 
 # revision history
+    v.1.2.22-26 240131 changed INFINITY from 1e6 to 1000
+                Simplified updateAfterZoom() and updateAfterFocus() functions
+                Added updateAfterODChange() function
+                Added updates to ODMin and ODMax values
+    v.1.2.21 240130 changed variable name lensConfiguration to engValues for clarity
+    v.1.2.19-20 240125 function hint documentation clarifications
+                Bug: loadSensorWidth should write a float (not string)
     v.1.2.18 240109 readMe documentation changes
     v.1.2.17 240109 ***renamed from IQSmart to lensIQ***
     v.1.2.16 240109 license and documentation udpate 

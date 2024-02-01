@@ -16,7 +16,7 @@ class lensIQ():
     DEFAULT_REL_STEP = 1000             # default number of relative steps
     DEFAULT_SPEED_IRIS = 100            # default iris motor speed
     DEFAULT_IRIS_STEP = 10              # default number of iris relative steps
-    INFINITY = 1e6                      # infinite object distance
+    INFINITY = 1000                     # [m] infinite object distance
     OD_MIN_DEFAULT = 2                  # default minimum object distance is not specified in the calibration data file
     COC = 0.020                         # circle of confusion for DoF calcualtion
 
@@ -26,7 +26,7 @@ class lensIQ():
     ERR_FL_MIN = 'FL min'               # minimum focal length exceeded
     ERR_FL_MAX = 'FL max'               # maximum focal length exceeded
     ERR_OD_MIN = 'OD min'               # minimum object distance exceeded
-    ERR_OD_MAX = 'OD max'               # maximum object distance (1000000 (infinity)) exceeded
+    ERR_OD_MAX = 'OD max'               # maximum object distance (1000 (infinity)) exceeded
     ERR_OD_VALUE = 'OD value'           # OD not specified
     ERR_NA_MIN = 'NA min'               # minimum numerical aperture exceeded
     ERR_NA_MAX = 'NA max'               # maximum numerical aperture exceeded
@@ -34,6 +34,7 @@ class lensIQ():
     ERR_RANGE_MAX = 'out of range-max'  # out of allowable range
     ERR_CALC = 'calculation error'      # calculation error (infinity or divide by zero or other)
     WARN_VALUE = 'value warning'        # warning if value seems extreme, possible unit conversion issue
+    STRING_VALUE = 'string value'       # string value returned when number value is expected
 
     ### setup functions ###
     def __init__(self):
@@ -47,7 +48,7 @@ class lensIQ():
         ### class variables 
         - COC (optional: 0.020): circle of confusion for calculating depth of field (in mm)
         - sensorWd (optional: read from default data): image sensor width (in mm)
-        - lensConfiguration: 
+        - engValues: 
         {
             'tsLatest': (timestamp value), 
             (config): 
@@ -73,7 +74,7 @@ class lensIQ():
         - ERR_FL_MIN = 'FL min'               # minimum focal length exceeded
         - ERR_FL_MAX = 'FL max'               # maximum focal length exceeded
         - ERR_OD_MIN = 'OD min'               # minimum object distance exceeded
-        - ERR_OD_MAX = 'OD max'               # maximum object distance (1000000 (infinity)) exceeded
+        - ERR_OD_MAX = 'OD max'               # maximum object distance (1000 (infinity)) exceeded
         - ERR_OD_VALUE = 'OD value'           # OD not specified
         - ERR_NA_MIN = 'NA min'               # minimum numerical aperture exceeded
         - ERR_NA_MAX = 'NA max'               # maximum numerical aperture exceeded
@@ -81,6 +82,7 @@ class lensIQ():
         - ERR_RANGE_MAX = 'out of range-max'  # out of allowable range
         - ERR_CALC = 'calculation error'      # calculation error (infinity or divide by zero or other)
         - WARN_VALUE = 'value warning'        # warning if value seems extreme, possible unit conversion issue
+        - STRING_VALUE = 'string value'       # string value returned when number value is expected
 
         (c)2023 Theia Technologies
         www.TheiaTech.com
@@ -103,14 +105,22 @@ class lensIQ():
         # 'OD' can be string error 'NA (near)' or 'NA (far)' as well as float value. 
         # DOFMin and DOFMax are the min and max object distances that are in the depth of field. 
         # Also, the current motor steps are stored.  These are used for the calcuations.  
-        self.lensConfiguration = {'tsLatest': 0}
+        self.engValues = {'tsLatest': 0}
         for f in ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA', 'zoomStep', 'focusStep', 'irisStep']:
-            self.lensConfiguration[f] = {'value':0, 'min':0, 'max':0, 'ts':0}
+            self.engValues[f] = {'value':0, 'min':0, 'max':0, 'ts':0}
+        self.engValues['OD']['min'] = self.OD_MIN_DEFAULT
+        self.engValues['OD']['max'] = self.INFINITY
 
     # load the calibration data
     def loadData(self, calData) -> str:
         '''
-        Validate that the calibration data set is okay.  This function also updates the maximum focus and zoom steps in 'lensConfiguration' and the 'sensorWd' class variable.  
+        Validate that the calibration data set is okay.  This function also updates the 
+        maximum focus and zoom steps in 'engValues' and the 'sensorWd' class variable.  
+        The input parameter is the json data which can be read from a file with: 
+
+        with open(fname, 'r') as f:
+            data = json.load(f)
+
         ### input
         - calData: the calibration data set (loaded from default data or calibrated data)
         ### return
@@ -121,8 +131,8 @@ class lensIQ():
             return lensIQ.ERR_NO_CAL
         
         # save initial step values
-        self.lensConfiguration['zoomStep']['value'] = calData['zoomPI']
-        self.lensConfiguration['focusStep']['value'] = calData['focusPI']
+        self.engValues['zoomStep']['value'] = calData['zoomPI']
+        self.engValues['focusStep']['value'] = calData['focusPI']
         self.sensorWd = 0.8 * calData['ihMax']
         return lensIQ.OK
 
@@ -155,6 +165,13 @@ class lensIQ():
         ### return
         ['OK']
         '''
+        if isinstance(width, str):
+            try:
+                float(width)
+            except:
+                # do not update sensor width value
+                return lensIQ.STRING_VALUE
+        width = float(width)
         if ratio == 0:
             # first parameter is sensor width
             self.sensorWd = width
@@ -199,7 +216,7 @@ class lensIQ():
             err = lensIQ.ERR_FL_MAX
         
         # save the results
-        self.updateLensConfiguration('FL', FL, flMin, flMax)
+        self.updateEngValues('FL', FL, flMin, flMax)
         return FL, err, flMin, flMax
 
     # calculate the object distance from the focus step
@@ -262,7 +279,7 @@ class lensIQ():
                 err = lensIQ.ERR_OD_MIN
 
         # save the results
-        self.updateLensConfiguration('OD', OD, ODMin, ODMax)
+        self.updateEngValues('OD', OD, ODMin, ODMax)
         return OD, err, ODMin, ODMax
 
     # calculate the numeric aperture from iris motor step
@@ -303,7 +320,7 @@ class lensIQ():
             if rangeLimit: NA = NAMin
 
         # save the results
-        self.updateLensConfiguration('NA', NA, NAMin, NAMax)
+        self.updateEngValues('NA', NA, NAMin, NAMax)
         return NA, err, NAMin, NAMax
 
     # calculate the F/# from the iris motor step
@@ -326,7 +343,7 @@ class lensIQ():
         fNumMax = self.NA2FNum(NAMax)
 
         # save the results
-        self.updateLensConfiguration('FNum', fNum, fNumMin, fNumMax)
+        self.updateEngValues('FNum', fNum, fNumMin, fNumMax)
         return fNum, err, fNumMin, fNumMax
 
 
@@ -373,7 +390,7 @@ class lensIQ():
             zoomStep = zoomStepMax
 
         # save the results
-        self.updateLensConfiguration('zoomStep', zoomStep)
+        self.updateEngValues('zoomStep', zoomStep)
         return zoomStep, err
 
     # calculate object distance from focus motor step
@@ -381,7 +398,7 @@ class lensIQ():
         '''
         Calculate object distance from focus motor step. 
         The focus motor step number will be limited to the available range.
-        Maximum object distance input can be 1000000m (infinity).  Minimum object distance
+        Maximum object distance input can be 1000m (infinity).  Minimum object distance
         can be 0 but focus motor step may not support this minimum.  Also, the focus/zoom
         calculation can cause fitting errors outside the acceptable range.
         ### input
@@ -413,7 +430,7 @@ class lensIQ():
             focusStep = focusStepMax
 
         # save the results
-        self.updateLensConfiguration('focusStep', focusStep)
+        self.updateEngValues('focusStep', focusStep)
         return focusStep, err
 
     # calculate object distance from focus motor step
@@ -421,7 +438,7 @@ class lensIQ():
         '''
         Calculate object distance from focus motor step.
         The focus motor step number will be limited to the available range.
-        Maximum object distance input can be 1000000m (infinity).  Minimum object distance
+        Maximum object distance input can be 1000m (infinity).  Minimum object distance
         can be 0 but focus motor step may not support this minimum.  Also, the focus/zoom
         calculation can cause fitting errors outside the acceptable range.
         ### input
@@ -489,7 +506,7 @@ class lensIQ():
         irisStep = int(stepValueList[0] + interpolationFactor * (stepValueList[1] - stepValueList[0]))
         
         # save the results
-        self.updateLensConfiguration('irisStep', irisStep)
+        self.updateEngValues('irisStep', irisStep)
         return irisStep, err
 
     # calcualted the iris motor step from F/#
@@ -570,8 +587,8 @@ class lensIQ():
 
         # calculate zoom step from focal length
         zoomStep, err = self.FL2ZoomStep(FLValue)
-        self.updateLensConfiguration('zoomStep', zoomStep)
-        self.updateLensConfiguration('FL', FLValue)
+        self.updateEngValues('zoomStep', zoomStep)
+        self.updateEngValues('FL', FLValue)
 
         # check if object distance is valid
         if isinstance(OD, str):
@@ -583,7 +600,7 @@ class lensIQ():
         else:
             # calculate focus step using focus/zoom curve
             focusStep, err = self.OD2FocusStep(OD, zoomStep, BFL)
-        self.updateLensConfiguration('focusStep', focusStep)
+        self.updateEngValues('focusStep', focusStep)
 
         return focusStep, zoomStep, FLValue, err
 
@@ -636,7 +653,7 @@ class lensIQ():
         AOV = 2 * semiAOV
 
         # save the results
-        if saveAOV: self.updateLensConfiguration('AOV', AOV)
+        if saveAOV: self.updateEngValues('AOV', AOV)
         return AOV, lensIQ.OK
     
     # calculate the AOV limits for the lens (minimum and maximum)
@@ -653,10 +670,10 @@ class lensIQ():
         flMin = self.calData['flMin']
         flMax = self.calData['flMax']
 
-        self.lensConfiguration['AOV']['min'], _err = self.calcAOV(self.sensorWd, flMin, saveAOV=False)
-        self.lensConfiguration['AOV']['max'], _err = self.calcAOV(self.sensorWd, flMax, saveAOV=False)
+        self.engValues['AOV']['min'], _err = self.calcAOV(self.sensorWd, flMin, saveAOV=False)
+        self.engValues['AOV']['max'], _err = self.calcAOV(self.sensorWd, flMax, saveAOV=False)
 
-        return self.lensConfiguration['AOV']['min'], self.lensConfiguration['AOV']['max'], lensIQ.OK
+        return self.engValues['AOV']['min'], self.engValues['AOV']['max'], lensIQ.OK
 
     # calculate field of view
     def calcFOV(self, sensorWd:float, FL:float, OD:float=1000000) -> Tuple[float, str]:
@@ -677,7 +694,7 @@ class lensIQ():
         FOV = 2 * OD * np.tan(np.radians(AOV / 2))
         
         # save the results
-        self.updateLensConfiguration('FOV', FOV)
+        self.updateEngValues('FOV', FOV)
         return FOV, lensIQ.OK
 
     # calcualte depth of field
@@ -717,7 +734,7 @@ class lensIQ():
             DOF = ODMax - ODMin
 
         # save the results
-        self.updateLensConfiguration('DOF', DOF, ODMin, ODMax)
+        self.updateEngValues('DOF', DOF, ODMin, ODMax)
         return DOF, lensIQ.OK, ODMin, ODMax
     
     ### -------------------------------------- ###
@@ -730,40 +747,33 @@ class lensIQ():
         Update after zoom.  
         After changing the zoom motor step number, update (recalculate if neccessary) the new
         values for focal length, F/# and numeric aperture, field of view, 
-        and depth of focus.  Store the updated data in lensConfiguration.  
+        and depth of focus.  Store the updated data in engValues.  
         There is limited error checking.  
         ### input
         - zoomStep: zoom step number
         ### return
         none
         '''
-        self.lensConfiguration['tsLatest'] += 1
-        self.updateLensConfiguration('zoomStep', zoomStep)
+        self.engValues['tsLatest'] += 1
+        self.updateEngValues('zoomStep', zoomStep)
 
         # set the new focal length 
         FL, _err, _flMin, _flMax = self.zoomStep2FL(zoomStep)
 
-        # calcuate the lens aperture
-        self.irisStep2FNum(self.lensConfiguration['irisStep']['value'], FL)
-
         # calculate the new focus step
-        if not isinstance(self.lensConfiguration['OD']['value'], str) and self.lensConfiguration['OD']['value'] > 0:
-            self.OD2FocusStep(self.lensConfiguration['OD']['value'], zoomStep)
-
-            # calcualte FOV and AOV
-            self.calcFOV(self.sensorWd, FL, OD=self.lensConfiguration['OD']['value'])
-        
-            # calcualte the depth of focus
-            self.calcDOF(self.lensConfiguration['irisStep']['value'], FL, self.lensConfiguration['OD']['value'])
-        else:
-            self.calcAOV(self.sensorWd, FL)
+        if not isinstance(self.engValues['OD']['value'], str) and self.engValues['OD']['value'] > 0:
+            self.OD2FocusStep(self.engValues['OD']['value'], zoomStep)
+            self.calcFOV(self.sensorWd, FL, OD=self.engValues['OD']['value'])
+            self.calcDOF(self.engValues['irisStep']['value'], FL, self.engValues['OD']['value'])
+        self.calcAOV(self.sensorWd, FL)
+        self.irisStep2FNum(self.engValues['irisStep']['value'], FL)
 
     # updateAfterFocus
     def updateAfterFocus(self, focusStep:int, updateOD:bool=True):
         '''
         Update after focus. 
         After changing the focus step number, update the new values for engineering units. The object distance, 
-        field of view, and depth of focus are updated.  Store the updated data in the lensConfiguration.  
+        field of view, and depth of focus are updated.  Store the updated data in the engValues.  
         There is limited error checking. 
         ### input
         - focusStep: focus step number
@@ -771,43 +781,60 @@ class lensIQ():
         ### return
         none
         '''
-        self.lensConfiguration['tsLatest'] += 1
-        self.updateLensConfiguration('focusStep', focusStep)
+        self.engValues['tsLatest'] += 1
+        self.updateEngValues('focusStep', focusStep)
 
         # calculate the object distance
         if updateOD:
-            OD, _err, _ODMin, _ODMax= self.focusStep2OD(focusStep, self.lensConfiguration['zoomStep']['value'])
+            OD, _err, ODMin, ODMax= self.focusStep2OD(focusStep, self.engValues['zoomStep']['value'])
+            self.updateEngValues('OD', OD, ODMin, ODMax)
         else:
-            OD = self.lensConfiguration['OD']['value']
+            OD = self.engValues['OD']['value']
 
         if not isinstance(OD, str) and OD > 0:
-            # calculate the field of view
-            self.calcFOV(self.sensorWd, self.lensConfiguration['FL']['value'], OD)
+            # calculate the field of view and depth of field
+            self.calcFOV(self.sensorWd, self.engValues['FL']['value'], OD)
+            self.calcDOF(self.engValues['irisStep']['value'], self.engValues['FL']['value'], OD)
 
-            # calcualte the depth of focus
-            self.calcDOF(self.lensConfiguration['irisStep']['value'], self.lensConfiguration['FL']['value'], OD)
+    # update after OD change
+    def updateAfterODChange(self, OD:float):
+        '''
+        Update after object distance change.  At longer OD, the calcualted OD may be quite a long
+        way off the requested OD.  Store the requested OD instead of the calcualted OD.  
+        ### input: 
+        - OD: object distance for calculation
+        ### return
+        none
+        '''
+        self.engValues['tsLatest'] += 1
+        self.updateEngValues('OD', OD)
+        
+        if not isinstance(OD, str) and OD > 0:
+            # calculate the field of view and depth of field
+            self.calcFOV(self.sensorWd, self.engValues['FL']['value'], OD)
+            self.calcDOF(self.engValues['irisStep']['value'], self.engValues['FL']['value'], OD)
 
     # updateAfterIris
     def updateAfterIris(self, irisStep:int):
         '''
         Update after iris move.  
         Update the engineering unit values after a change in lens aperture step.  F/#, numeric aperture, 
-        and depth of focus are udpated.   Store the udpated data in the lensConfiguration.  
+        and depth of focus are udpated.   Store the udpated data in the engValues.  
         There is limited error checking. 
         ### input
         - irisStep: the iris step number
         ### return
         none
         '''
-        self.lensConfiguration['tsLatest'] += 1
-        self.updateLensConfiguration('irisStep', irisStep)
+        self.engValues['tsLatest'] += 1
+        self.updateEngValues('irisStep', irisStep)
 
         # calculate F/# and numeric aperture
-        self.irisStep2FNum(irisStep, self.lensConfiguration['FL']['value'])
+        self.irisStep2FNum(irisStep, self.engValues['FL']['value'])
         
         # update the field of view and angle of view
-        if not isinstance(self.lensConfiguration['OD']['value'], str) and self.lensConfiguration['OD']['value'] > 0:
-            self.calcDOF(irisStep, self.lensConfiguration['FL']['value'], self.lensConfiguration['OD']['value'])
+        if not isinstance(self.engValues['OD']['value'], str) and self.engValues['OD']['value'] > 0:
+            self.calcDOF(irisStep, self.engValues['FL']['value'], self.engValues['OD']['value'])
 
     ### -------------------------------------- ###
     ### back focal length correction functions ###
@@ -954,7 +981,7 @@ class lensIQ():
         return AOV
     
     # store data in the lensConfig structure
-    def updateLensConfiguration(self, key:str, value:Tuple[float, int, str], min:Tuple[float, int]=None, max:Tuple[float, int]=None):
+    def updateEngValues(self, key:str, value:Tuple[float, int, str], min:Tuple[float, int]=None, max:Tuple[float, int]=None):
         '''
         Store data in the lensConfig list structure.
         ### input
@@ -964,12 +991,12 @@ class lensIQ():
         ### return
         none
         '''
-        if key not in self.lensConfiguration:
+        if key not in self.engValues:
             return
-        self.lensConfiguration[key]['value'] = value
-        if min: self.lensConfiguration[key]['min'] = min
-        if max: self.lensConfiguration[key]['max'] = max
-        self.lensConfiguration[key]['ts'] = self.lensConfiguration['tsLatest']
+        self.engValues[key]['value'] = value
+        if min: self.engValues[key]['min'] = min
+        if max: self.engValues[key]['max'] = max
+        self.engValues[key]['ts'] = self.engValues['tsLatest']
         return 
 
     # interpolate/ extrapolate between two values of control points

@@ -7,6 +7,13 @@ import logging as log
 import json
 
 def loadDefaultData(lens:str='NA'):
+    '''
+    Load default calibration data.  This module must be imported (import lensIQ.loadDefaultData).  
+    ### input:
+    - lens: lens family prefix ('TW90' for example)
+    ### return: 
+    [json data dictionary]
+    '''
     data = {}
     
     def addTW60ApertureData(data):

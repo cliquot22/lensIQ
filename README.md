@@ -40,11 +40,11 @@ After initializing it is possible to use the functions to convert from engineeri
 # Class variables and constants
 There are constants for error/results values returned from the functions.  More can be found on the [wiki](https://github.com/cliquot22/lensIQ/wiki) page.  
 
-The `lensConfiguration` variable is where the results of calculations and motor step positions are stored.  It is a list with format:  
+The `engValues` variable is where the results of calculations and motor step positions are stored.  It is a list with format:  
 ``` 
         {
             'tsLatest': (timestamp value), 
-            (config): 
+            (type): 
             {
                 'value': (number), 
                 'min': (number), 
@@ -53,11 +53,11 @@ The `lensConfiguration` variable is where the results of calculations and motor 
             }
         }
 ```  
-- 'tsLatest' is the integer id for the latest update after a calculation set.  Each configuration (see below) of the lens has a local 'ts' that can be compared to see if the configuration is potentially out of date.  The 'ts' value for the engineering units ('FOV', 'AOV', etc) should be equal or greater than the zoom, focus, or iris ('irisStep' etc) motor 'ts' value depending on which of these three motor step positions affect the engineering value.  
-- 'config' includes ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA', 'zoomStep', 'focusStep', 'irisStep'].  Each configuration value has 'value', 'min', 'max', and 'ts'.  'min' and 'max' may not always make sense (zoomStep for instance).  
-- Object distance configuration 'OD' can be string value 'NA (near)' or 'NA (far)' as well as float value of the set object distance. 
-- Depth of field configurations 'DOFMin' and 'DOFMax' are the minimum and maximum object distances that are in the depth of field. 
-- Configurations 'zoomStep', 'focusStep', and 'irisStep' are the current motor step positions.  These are used for the engineering unit calculations.  
+- 'tsLatest' is the integer id for the latest update after a calculation set.  Each configuration (see below) of the lens has a local 'ts' that can be compared to see if the configuration is potentially out of date.  The 'ts' value for the engineering type ('FOV', 'AOV', etc) should be equal or greater than the zoom, focus, or iris ('irisStep' etc) motor 'ts' value depending on which of these three motor step positions affect the engineering value.  
+- 'type' includes ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA', 'zoomStep', 'focusStep', 'irisStep'].  Each type has 'value', 'min', 'max', and 'ts'.  'min' and 'max' may not always make sense (zoomStep for instance).  
+- Object distance type 'OD' can be string value 'NA (near)' or 'NA (far)' as well as float value of the set object distance. 
+- Depth of field type 'DOFMin' and 'DOFMax' are the minimum and maximum object distances that are in the depth of field. 
+- Types 'zoomStep', 'focusStep', and 'irisStep' are the current motor step positions.  These are used for the engineering unit calculations.  
 
 # Camera back focal length calibration
 Due to tolerances in the lens mount surface to image sensor (the back focal length or BFL), the focus step needs to be adjusted for the exact camera being used.  This module includes functions to set this BFL calibration.  See Theia's application note [AN004](https://www.theiatech.com/lenses/calibrated-lenses/) for more information on this procedure.  
@@ -74,4 +74,4 @@ Mark Peterson at Theia Technologies
 [mpeterson@theiatech.com](mailto://mpeterson@theiatech.com)
 
 # Revision
-v.1.2.18
+v.1.2.26
