@@ -2,6 +2,7 @@
 Function removeBFLCorrectionByIndex to allow removing all data points
 
 # revision history
+    v.1.2.27 240207 added sensorRatio variable
     v.1.2.22-26 240131 changed INFINITY from 1e6 to 1000
                 Simplified updateAfterZoom() and updateAfterFocus() functions
                 Added updateAfterODChange() function

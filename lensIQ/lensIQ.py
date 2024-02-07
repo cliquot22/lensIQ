@@ -90,6 +90,7 @@ class lensIQ():
         self.calData = {}
         self.COC = lensIQ.COC
         self.sensorWd = 0
+        self.sensorRatio = 0.8
 
         # back focal length correction values
         self.BFLCorrectionValues = []
@@ -133,7 +134,7 @@ class lensIQ():
         # save initial step values
         self.engValues['zoomStep']['value'] = calData['zoomPI']
         self.engValues['focusStep']['value'] = calData['focusPI']
-        self.sensorWd = 0.8 * calData['ihMax']
+        self.sensorWd = self.sensorRatio * calData['ihMax']
         return lensIQ.OK
 
     # load a circle of confusion value 
@@ -177,7 +178,8 @@ class lensIQ():
             self.sensorWd = width
         else:
             # first parameter is the sensor diagonal
-            self.sensorWd = width * ratio
+            self.sensorRatio = ratio
+            self.sensorWd = width * self.sensorRatio
         return lensIQ.OK
 
 
