@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lensIQ"
-version = "1.2.27"
+version = "1.2.32"
 authors = [
   { name="Mark Peterson", email="mpeterson@theiatech.com" },
 ]

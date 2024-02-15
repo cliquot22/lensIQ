@@ -867,15 +867,15 @@ class lensIQ():
         return int(correctionValue)
 
     # store data points for BFL correction
-    def addBFLCorrection(self, focusStep:int, FL:float, OD:float=1000000) -> list:
+    def addBFLCorrection(self, FL:float, focusStep:int, OD:float=1000000) -> list:
         '''
         Store data points for BFL correction. 
         With the lens set to an object distance and focal length, the calculated focal step is compared
         to the set best focus position.  The difference is added to the BFL correction factor list.  
         Add a focus shift amount to the list and fit for focal length [[FL, focus shift], [...]]. 
         ### input
-        - focusStep: focus step position for best focus
         - FL: current focal length
+        - focusStep: focus step position for best focus
         - OD: (optional: infinity): current object distance in meters
         ### return
         [[FL, step, OD],[...]]
@@ -884,13 +884,34 @@ class lensIQ():
         # find the default focus step for infinity object distance
         designFocusStep, _err = self.ODFL2FocusStep(OD, FL, BFL=0)
 
+        # save the focus shift amount and re-fit the points
+        self.addBFLCorrectionDelta(FL, focusStep - designFocusStep, OD)
+
+        # return the values
+        return self.BFLCorrectionValues
+
+    # store data points for BFL correction
+    def addBFLCorrectionDelta(self, FL:float, focusDelta:int, OD:float=1000000) -> list:
+        '''
+        Store data points for BFL correction. 
+        With the lens set to an object distance and focal length, save the focus step
+        difference from best focus position.  The difference is added to the BFL correction factor list.  
+        Add a focus shift amount to the list and fit for focal length [[FL, focus shift], [...]]. 
+        ### input
+        - FL: current focal length
+        - focusDelta: focus step difference from best focus
+        - OD: (optional: infinity): current object distance in meters
+        ### return
+        [[FL, step, OD],[...]]
+        Current set point BFL correction list 
+        '''
         # save the focus shift amount
-        self.BFLCorrectionValues.append([FL, focusStep - designFocusStep, OD])
+        self.BFLCorrectionValues.append([FL, focusDelta, OD])
 
         # re-fit the data
         self.fitBFLCorrection()
         return self.BFLCorrectionValues
-
+    
     # remove BFL correction point
     def removeBFLCorrectionByIndex(self, idx:int) -> list:
         '''
@@ -921,6 +942,10 @@ class lensIQ():
         ### return
         none
         '''
+        if len(self.BFLCorrectionValues) == 0:
+            self.BFLCorrectionCoeffs = []
+            return
+        
         xy = np.transpose(self.BFLCorrectionValues)
         # fit the data
         if len(self.BFLCorrectionValues) == 1:
@@ -933,6 +958,13 @@ class lensIQ():
             # quadratic fit for > 3 data points
             self.BFLCorrectionCoeffs = nppp.polyfit(xy[0], xy[1], 2)
 
+    # reset BFL correction
+    def resetBFLCorrection(self):
+        '''
+        Delete all the BFL correction values and coefficients.  Reset to default (pre-correction).  
+        '''
+        self.BFLCorrectionValues = []
+        self.BFLCorrectionCoeffs = []
 
     ### ----------------- ###
     ### support functions ###

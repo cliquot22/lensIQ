@@ -2,6 +2,10 @@
 Function removeBFLCorrectionByIndex to allow removing all data points
 
 # revision history
+    v.1.2.30-32 240214 added addBFLCorrectionDelta function
+    v.1.2.29 240212 bug: don't fit BFL curve is no points are saved
+                added reset BFL function
+    v.1.2.28 240209 changed input order for addBFLCorrection() for consistency
     v.1.2.27 240207 added sensorRatio variable
     v.1.2.22-26 240131 changed INFINITY from 1e6 to 1000
                 Simplified updateAfterZoom() and updateAfterFocus() functions
