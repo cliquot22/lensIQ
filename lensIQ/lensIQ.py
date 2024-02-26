@@ -33,8 +33,8 @@ class lensIQ():
     ERR_RANGE_MIN = 'out of range-min'  # out of allowable range
     ERR_RANGE_MAX = 'out of range-max'  # out of allowable range
     ERR_CALC = 'calculation error'      # calculation error (infinity or divide by zero or other)
+    ERR_NAN = 'string value'            # string value returned when number value is expected
     WARN_VALUE = 'value warning'        # warning if value seems extreme, possible unit conversion issue
-    STRING_VALUE = 'string value'       # string value returned when number value is expected
 
     ### setup functions ###
     def __init__(self):
@@ -164,14 +164,14 @@ class lensIQ():
         - width: sensor width or diagonal (in mm)
         - ratio: (optional): the width to diagonal ratio
         ### return
-        ['OK']
+        ['OK' | ']
         '''
         if isinstance(width, str):
             try:
                 float(width)
             except:
                 # do not update sensor width value
-                return lensIQ.STRING_VALUE
+                return lensIQ.ERR_NAN
         width = float(width)
         if ratio == 0:
             # first parameter is sensor width
@@ -409,9 +409,14 @@ class lensIQ():
         - BFL (optional: 0): back focus step adjustment
         ### return
         [focusStep, note]
-        'note' string value can be: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'no OD set']
+        'note' string value can be: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'no OD set' | 'not a number']
         '''
         if 'tracking' not in self.calData.keys(): return 0, lensIQ.ERR_NO_CAL
+        try:
+            float(OD)
+        except:
+            # OD is not a number
+            return None, lensIQ.ERR_NAN
 
         # extract the focus/zoom tracking polynomial data and interpolate to OD
         if OD == 0:
@@ -849,15 +854,17 @@ class lensIQ():
         Back focal length correction factor. 
         Whenever focus step is calculated, this function will calculate the correction value (in steps)
         for the focus motor position at the current focal length. 
-        Tolerances in the lens to sensor position will cause an offset in the
-        focus motor step position. 
+        Tolerances in the lens to sensor position will cause an offset in the focus motor step position. 
+
         This function reads stored values from the global 'BFLCorrectionCoefs' to calculate the correction value.  
-        ### input: FL: focal length
-        - OD: (optional: infinity): object distance in meters
+
+        NOTE: Current calculations do not take object distance into account.  All correction factors are based
+        on the same object distance where the BFL correction points were stored.  
+        ### input: 
+        - FL: focal length
+        - OD: **Not currently supported**
         ### return
         focus step difference
-        ##### TBD add object distance OD dependence. 
-        Currently all object distances will be included in the fitting together as infinity.  
         '''
         if len(self.BFLCorrectionCoeffs) == 0:
             # no correction values set up yet
@@ -873,6 +880,9 @@ class lensIQ():
         With the lens set to an object distance and focal length, the calculated focal step is compared
         to the set best focus position.  The difference is added to the BFL correction factor list.  
         Add a focus shift amount to the list and fit for focal length [[FL, focus shift], [...]]. 
+        
+        NOTE: all points are used for fitting regardless of the object distance.  Make sure the saved
+        points all have the same object distance.  
         ### input
         - FL: current focal length
         - focusStep: focus step position for best focus
@@ -897,6 +907,9 @@ class lensIQ():
         With the lens set to an object distance and focal length, save the focus step
         difference from best focus position.  The difference is added to the BFL correction factor list.  
         Add a focus shift amount to the list and fit for focal length [[FL, focus shift], [...]]. 
+
+        NOTE: all points are used for fitting regardless of the object distance.  Make sure the saved
+        points all have the same object distance.  
         ### input
         - FL: current focal length
         - focusDelta: focus step difference from best focus
@@ -937,6 +950,8 @@ class lensIQ():
     def fitBFLCorrection(self):
         '''
         Curve fit the BFL correction list.  Global list variable 'BFLCorrectionCoeffs' list is updated.  
+        NOTE: all points are used for fitting regardless of the object distance.  Make sure the saved
+        points all have the same object distance.  
         ### input
         none
         ### return

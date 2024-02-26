@@ -2,6 +2,7 @@
 Function removeBFLCorrectionByIndex to allow removing all data points
 
 # revision history
+    v.1.2.33 240216 bug: added string/number check in OD2FocusStep
     v.1.2.30-32 240214 added addBFLCorrectionDelta function
     v.1.2.29 240212 bug: don't fit BFL curve is no points are saved
                 added reset BFL function
