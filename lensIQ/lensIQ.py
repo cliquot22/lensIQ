@@ -395,10 +395,29 @@ class lensIQ():
         self.updateEngValues('zoomStep', zoomStep)
         return zoomStep, err
 
-    # calculate object distance from focus motor step
+    # calculate focus motor step from object distance and zoom step
+    def zoomStep2FocusStep(self, zoomStep:int, OD:float, BFL:int=0) -> Tuple[int, str]:
+        '''
+        Calculate focus motor step from object distance and zoom step. 
+        The focus motor step number will be limited to the available range.
+        Maximum object distance input can be 1000m (infinity).  Minimum object distance
+        can be 0 but focus motor step may not support this minimum.  Also, the focus/zoom
+        calculation can cause fitting errors outside the acceptable range.
+        ### input
+        - zoomStep: current zoom motor step position
+        - OD: object distance
+        - BFL (optional: 0): back focus step adjustment
+        ### return
+        [focusStep, note]
+        'note' string value can be: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'no OD set' | 'not a number']
+        '''
+        focusStep, err = self.OD2FocusStep(OD, zoomStep, BFL)
+        return focusStep, err
+    
+    # calculate focus motor step from object distance and zoom step (alternate)
     def OD2FocusStep(self, OD:float, zoomStep:int, BFL:int=0) -> Tuple[int, str]:
         '''
-        Calculate object distance from focus motor step. 
+        Calculate focus motor step from object distance and zoom step. 
         The focus motor step number will be limited to the available range.
         Maximum object distance input can be 1000m (infinity).  Minimum object distance
         can be 0 but focus motor step may not support this minimum.  Also, the focus/zoom
@@ -877,7 +896,7 @@ class lensIQ():
     def addBFLCorrection(self, FL:float, focusStep:int, OD:float=1000000) -> list:
         '''
         Store data points for BFL correction. 
-        With the lens set to an object distance and focal length, the calculated focal step is compared
+        With the lens set to an object distance and focal length, the calculated focus step is compared
         to the set best focus position.  The difference is added to the BFL correction factor list.  
         Add a focus shift amount to the list and fit for focal length [[FL, focus shift], [...]]. 
         
