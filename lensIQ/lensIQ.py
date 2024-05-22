@@ -82,7 +82,7 @@ class lensIQ():
         - ERR_RANGE_MAX = 'out of range-max'  # out of allowable range
         - ERR_CALC = 'calculation error'      # calculation error (infinity or divide by zero or other)
         - WARN_VALUE = 'value warning'        # warning if value seems extreme, possible unit conversion issue
-        - STRING_VALUE = 'string value'       # string value returned when number value is expected
+        - ERR_NAN = 'string value'       # string value returned when number value is expected
 
         (c)2023 Theia Technologies
         www.TheiaTech.com
