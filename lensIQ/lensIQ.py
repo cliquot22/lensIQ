@@ -67,6 +67,9 @@ class lensIQ():
             - Configuration 'OD' can be string error 'NA (near)' or 'NA (far)' as well as float value of the set object distance. 
             - Configurations 'DOFMin' and 'DOFMax' are the minimum and maximum object distances that are in the depth of field. 
             - Configurations 'zoomStep', 'focusStep', and 'irisStep' are the current motor step positions.  These are used for the engineering unit calcuations.  
+        - BFLCorrectionValues: the difference between best measured focus and predicted focus.  Values are stored in [FL, difference, OD]
+        - BFLCorrectionCoeffs: the quadratic coefficients for the BFL correction.  This curve is teh difference between the best measured
+        and predicted focus values.  
         ### class constants
         These are possible return values and note values.  
         - OK = 'OK'
@@ -423,7 +426,7 @@ class lensIQ():
         can be 0 but focus motor step may not support this minimum.  Also, the focus/zoom
         calculation can cause fitting errors outside the acceptable range.
         ### input
-        - OD: object distance
+        - OD: object distance in meters
         - zoomStep: current zoom motor step position
         - BFL (optional: 0): back focus step adjustment
         ### return
@@ -462,13 +465,14 @@ class lensIQ():
     # calculate object distance from focus motor step
     def ODFL2FocusStep(self, OD:float, FL:float, BFL:int=0) -> Tuple[int, str]:
         '''
-        Calculate object distance from focus motor step.
-        The focus motor step number will be limited to the available range.
-        Maximum object distance input can be 1000m (infinity).  Minimum object distance
-        can be 0 but focus motor step may not support this minimum.  Also, the focus/zoom
-        calculation can cause fitting errors outside the acceptable range.
+        Calculate the focus motor step from object distance and focal length.  
+        If the zoom step is known, use OD2FocusStep instead to increase the accuracy of the prediction.  
+        The focus motor step will be limited to the available range.  
+        If the calculation is out of focus step range, there will be note value.  
+        Mzximum object distance input can be 1000m (infinity).  Minimum object distance
+        can be 0 but focus motor step may not support this minimum.  
         ### input
-        - OD: object distance
+        - OD: object distance in meters
         - FL: focal length
         - BFL (optional: 0): back focus step adjustment
         ### return
@@ -662,7 +666,7 @@ class lensIQ():
     # calculate angle of view
     def calcAOV(self, sensorWd:float, FL:float, saveAOV:bool=True) -> Tuple[float, str]:
         '''
-        Calculate angle of view (full angle). 
+        Calculate angle of view (full angle).  Optionally update the engineering values data structure.  
         ### input
         - sensorWd: width of sensor for horizontal AOV
         - FL: focal length
@@ -687,6 +691,7 @@ class lensIQ():
         '''
         Calculate the AOV limits for the lens (minimum and maximum). AOV is related to focal length.  
         'flMin' and 'flMax' are read from the calibration lens data or default calibration data.  
+        Update the values data structure with min/max values.  
         ### input
         - none
         ### return
@@ -696,32 +701,53 @@ class lensIQ():
         flMin = self.calData['flMin']
         flMax = self.calData['flMax']
 
-        self.engValues['AOV']['min'], _err = self.calcAOV(self.sensorWd, flMin, saveAOV=False)
-        self.engValues['AOV']['max'], _err = self.calcAOV(self.sensorWd, flMax, saveAOV=False)
+        self.engValues['AOV']['max'], _err = self.calcAOV(self.sensorWd, flMin, saveAOV=False)
+        self.engValues['AOV']['min'], _err = self.calcAOV(self.sensorWd, flMax, saveAOV=False)
 
         return self.engValues['AOV']['min'], self.engValues['AOV']['max'], lensIQ.OK
 
     # calculate field of view
-    def calcFOV(self, sensorWd:float, FL:float, OD:float=1000000) -> Tuple[float, str]:
+    def calcFOV(self, sensorWd:float, FL:float, OD:float=1000000, saveFOV:bool=True) -> Tuple[float, str]:
         '''
-        Calculate the full field of view width (in meters).
+        Calculate the full field of view width (in meters). Optionally update the engineering units data structure.  
         ### input
         - sensorWd: width of sensor for horizontal FOV
         - FL: focal length
         - OD (optional, infinity): object distance
+        - saveFOV (optional, True): save the calculated FOV to the data structure
         ### return
         [full field of view (m), note]
         'note' string value can be: ['OK', 'no cal data']
         '''
         if 'dist' not in self.calData.keys(): return 0, lensIQ.ERR_NO_CAL
-        AOV, _err  = self.calcAOV(sensorWd, FL)
+        AOV, _err  = self.calcAOV(sensorWd, FL, saveFOV)
 
         # calcualte the FOV at the object distance
         FOV = 2 * OD * np.tan(np.radians(AOV / 2))
         
         # save the results
-        self.updateEngValues('FOV', FOV)
+        if saveFOV: self.updateEngValues('FOV', FOV)
         return FOV, lensIQ.OK
+    
+    # calculate the FOV limits for the lens (minimum and maximum)
+    def calcFOVLimits(self) -> Tuple[float, float, str]:
+        '''
+        Calculate the FOV limits for the lens (minimum and maximum). FOV is related to focal length and object distance.  
+        'flMin' and 'flMax' are read from the calibration lens data or default calibration data.  
+        Update the engineering units data structure with min/max values.  
+        ### input
+        - none
+        ### return
+        [FOVMin, FOVMax, note]
+        'note' string value can be: ['OK']
+        '''
+        flMin = self.calData['flMin']
+        flMax = self.calData['flMax']
+
+        self.engValues['FOV']['max'], _err = self.calcFOV(self.sensorWd, flMin, self.engValues['OD']['value'], saveFOV=False)
+        self.engValues['FOV']['min'], _err = self.calcFOV(self.sensorWd, flMax, self.engValues['OD']['value'], saveFOV=False)
+
+        return self.engValues['FOV']['min'], self.engValues['FOV']['max'], lensIQ.OK
 
     # calcualte depth of field
     def calcDOF(self, irisStep:int, FL:float, OD:float=1000000) -> Tuple[float, str, float, float]:
@@ -790,6 +816,7 @@ class lensIQ():
         if not isinstance(self.engValues['OD']['value'], str) and self.engValues['OD']['value'] > 0:
             self.OD2FocusStep(self.engValues['OD']['value'], zoomStep)
             self.calcFOV(self.sensorWd, FL, OD=self.engValues['OD']['value'])
+            self.calcFOVLimits()
             self.calcDOF(self.engValues['irisStep']['value'], FL, self.engValues['OD']['value'])
         self.calcAOV(self.sensorWd, FL)
         self.irisStep2FNum(self.engValues['irisStep']['value'], FL)
@@ -820,6 +847,7 @@ class lensIQ():
         if not isinstance(OD, str) and OD > 0:
             # calculate the field of view and depth of field
             self.calcFOV(self.sensorWd, self.engValues['FL']['value'], OD)
+            self.calcFOVLimits()
             self.calcDOF(self.engValues['irisStep']['value'], self.engValues['FL']['value'], OD)
 
     # update after OD change
@@ -838,6 +866,7 @@ class lensIQ():
         if not isinstance(OD, str) and OD > 0:
             # calculate the field of view and depth of field
             self.calcFOV(self.sensorWd, self.engValues['FL']['value'], OD)
+            self.calcFOVLimits()
             self.calcDOF(self.engValues['irisStep']['value'], self.engValues['FL']['value'], OD)
 
     # updateAfterIris
@@ -893,12 +922,14 @@ class lensIQ():
         return int(correctionValue)
 
     # store data points for BFL correction
-    def addBFLCorrection(self, FL:float, focusStep:int, OD:float=1000000) -> list:
+    def addBFLCorrectionByFL(self, FL:float, focusStep:int, OD:float=1000000) -> list:
         '''
         Store data points for BFL correction. 
         With the lens set to an object distance and focal length, the calculated focus step is compared
         to the set best focus position.  The difference is added to the BFL correction factor list.  
         Add a focus shift amount to the list and fit for focal length [[FL, focus shift], [...]]. 
+        If the zoom motor step position is known, use addBFLCorrectionByZoomStep() instead to get a more
+        accurate result due to not needing to calculate zoom step from focal length.  
         
         NOTE: all points are used for fitting regardless of the object distance.  Make sure the saved
         points all have the same object distance.  
@@ -914,6 +945,34 @@ class lensIQ():
         designFocusStep, _err = self.ODFL2FocusStep(OD, FL, BFL=0)
 
         # save the focus shift amount and re-fit the points
+        self.addBFLCorrectionDelta(FL, focusStep - designFocusStep, OD)
+
+        # return the values
+        return self.BFLCorrectionValues
+
+    # store data points for BFL correction
+    def addBFLCorrectionByZoomStep(self, zoomStep:int, focusStep:int, OD:float=1000000) -> list:
+        '''
+        Store data points for BFL correction. 
+        With the lens set to an object distance and focal length, the calculated focus step is compared
+        to the set best focus position.  The difference is added to the BFL correction factor list.  
+        Add a focus shift amount to the list and fit for focal length [[FL, focus shift], [...]]. 
+        
+        NOTE: all points are used for fitting regardless of the object distance.  Make sure the saved
+        points all have the same object distance.  
+        ### input
+        - zoomStep: zoom motor step position
+        - focusStep: focus step position for best focus
+        - OD: (optional: infinity): current object distance in meters
+        ### return
+        [[FL, step, OD],[...]]
+        Current set point BFL correction list 
+        '''
+        # find the default focus step for infinity object distance
+        designFocusStep, _err = self.OD2FocusStep(OD, zoomStep, BFL=0)
+
+        # save the focus shift amount and re-fit the points
+        FL, _err, _flmin, _flmax = self.zoomStep2FL(zoomStep)
         self.addBFLCorrectionDelta(FL, focusStep - designFocusStep, OD)
 
         # return the values
