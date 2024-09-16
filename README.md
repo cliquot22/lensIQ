@@ -16,15 +16,13 @@ The software module can be loaded into Python using pip:
 Once installed, it is required to initialize the class before using any functions.  This is done by importing and then loading the default lens data.  In this example, Theia's TL1250P IQ lens ("TW90") data will be used.  (Note: "TW90" is the serial number prefix for this lens model.)
 ``` 
 import lensIQ
-import lensIQ.defaultCalData
 
 def app():
-    # read the default lens data
-    defaultData = lensIQ.defaultCalData.loadDefaultData("TW90")
-
     # initialize lensIQ
     IQ = lensIQ.lensIQ()
-    IQ.loadData(defaultData)
+
+    # read the default lens data
+    success = lensIQ.loadDataFile(JSON_formatted_data_file_path)
 ```   
 After initializing it is possible to use the functions to convert from engineering units to motor steps and back.  The zoom motor step can be calculated from a requested focal length.  And the focus motor step can be calcualted from a requested object distance at that set focal length.  
 ``` 
@@ -59,6 +57,9 @@ The `engValues` variable is where the results of calculations and motor step pos
 - Depth of field type 'DOFMin' and 'DOFMax' are the minimum and maximum object distances that are in the depth of field. 
 - Types 'zoomStep', 'focusStep', and 'irisStep' are the current motor step positions.  These are used for the engineering unit calculations.  
 
+# Logging
+There are logging commands in the module using Python's logging libray.  These are set by default to log WARNING and higher levels.  To see other log prints, initialize the class with `IQ = lensIQ.lensIQ(degubLog=True)` or manually set the logging level with `lensIQ.log.setLevel(logging.INFO)`.  
+
 # Camera back focal length calibration
 Due to tolerances in the lens mount surface to image sensor (the back focal length or BFL), the focus step needs to be adjusted for the exact camera being used.  This module includes functions to set this BFL calibration.  See Theia's application note [AN004](https://www.theiatech.com/lenses/calibrated-lenses/) for more information on this procedure.  
 
@@ -66,7 +67,7 @@ Functions that set or get the focus motor position will used this BFL correction
 
 # License
 Theia Technologies proprietary license
-Copyright 2023 Theia Technologies
+Copyright 2023-2024 Theia Technologies
 
 # Contact information
 For more information contact: 
@@ -74,4 +75,4 @@ Mark Peterson at Theia Technologies
 [mpeterson@theiatech.com](mailto://mpeterson@theiatech.com)
 
 # Revision
-v.1.4.0
+v.1.5.0

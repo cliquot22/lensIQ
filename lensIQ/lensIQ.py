@@ -1,11 +1,17 @@
 # Theia IQ Smart lens calculations and motor control functions
-# (c)2023 Theia Technologies
+# (c)2023-2024 Theia Technologies
 
 import numpy.polynomial.polynomial as nppp
 import numpy as np
 from scipy import optimize
 from typing import Tuple
+import logging
+import json
 
+# create a logger instance for this module
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+log.addHandler(logging.NullHandler())
 
 # These functions are ease of use functions for setting and getting motor step positions
 # and relating them to engineering units.
@@ -37,14 +43,14 @@ class lensIQ():
     WARN_VALUE = 'value warning'        # warning if value seems extreme, possible unit conversion issue
 
     ### setup functions ###
-    def __init__(self):
+    def __init__(self, debugLog:bool=False):
         '''
         Theia lens IQ calculations and motor control functions.  These functions allow ease of use when converting
         from engineering units (meters, degrees, etc.) to motor step positions and back.  After initializing the 
         class, call loadData to add any calibrated lens data.  
 
         ### input
-        - none
+        - debugLog (optional boolean: False): Set true to turn on the debug logging stream
         ### class variables 
         - COC (optional: 0.020): circle of confusion for calculating depth of field (in mm)
         - sensorWd (optional: read from default data): image sensor width (in mm)
@@ -90,6 +96,11 @@ class lensIQ():
         (c)2023 Theia Technologies
         www.TheiaTech.com
         '''
+        if debugLog:
+            log.setLevel(logging.DEBUG)
+        else:
+            log.setLevel(logging.WARNING)
+
         self.calData = {}
         self.COC = lensIQ.COC
         self.sensorWd = 0
@@ -114,6 +125,32 @@ class lensIQ():
             self.engValues[f] = {'value':0, 'min':0, 'max':0, 'ts':0}
         self.engValues['OD']['min'] = self.OD_MIN_DEFAULT
         self.engValues['OD']['max'] = self.INFINITY
+        log.info('lensIQ class initilized')
+    
+    # load and validate a calibration data file
+    def loadDataFile(self, fileName:str):
+        '''
+        Read the file contents and validate that the manufacturer key is present and is "Theia Technologies".
+        ### input:
+        - fileName: the path and name of the JSON data file to read
+        ### return
+        ['OK' | 'no cal data']
+        '''
+        MANUF_NAME_KEY = "manufName"  # the key in the JSON file with manufacturer's name
+        MANUF_NAME = "Theia Technologies"  # manufacturer name for JSON file validation
+        with open(fileName, "r") as f:
+            data = json.load(f)
+
+        if MANUF_NAME_KEY not in data:
+            log.warning(f'"{MANUF_NAME_KEY}" no found in JSON calibration datafile')
+            return lensIQ.ERR_NO_CAL
+
+        if (data[MANUF_NAME_KEY] != MANUF_NAME):
+            log.warning(f'JSON calibration datafile formatting isn\'t garanteed becuase manufacturer is not {MANUF_NAME}')
+            return lensIQ.ERR_NO_CAL
+
+        err = self.loadData(data)
+        return err
 
     # load the calibration data
     def loadData(self, calData) -> str:
@@ -132,12 +169,14 @@ class lensIQ():
         '''
         self.calData = calData
         if calData == {}:
+            log.warning('Calibration data formatting error')
             return lensIQ.ERR_NO_CAL
         
         # save initial step values
         self.engValues['zoomStep']['value'] = calData['zoomPI']
         self.engValues['focusStep']['value'] = calData['focusPI']
         self.sensorWd = self.sensorRatio * calData['ihMax']
+        log.info('Calibration datafile loaded')
         return lensIQ.OK
 
     # load a circle of confusion value 
@@ -222,6 +261,7 @@ class lensIQ():
         
         # save the results
         self.updateEngValues('FL', FL, flMin, flMax)
+        log.info(f'Zoom step {zoomStep} -> FL {FL:0.2f}')
         return FL, err, flMin, flMax
 
     # calculate the object distance from the focus step
@@ -285,6 +325,7 @@ class lensIQ():
 
         # save the results
         self.updateEngValues('OD', OD, ODMin, ODMax)
+        log.info(f'Focus step {focusStep} -> OD {OD}')
         return OD, err, ODMin, ODMax
 
     # calculate the numeric aperture from iris motor step
@@ -326,6 +367,7 @@ class lensIQ():
 
         # save the results
         self.updateEngValues('NA', NA, NAMin, NAMax)
+        log.info(f'Iris step {irisStep} -> NA {NA:0.3.f}')
         return NA, err, NAMin, NAMax
 
     # calculate the F/# from the iris motor step
@@ -349,6 +391,7 @@ class lensIQ():
 
         # save the results
         self.updateEngValues('FNum', fNum, fNumMin, fNumMax)
+        log.info(f'Iris step {irisStep} -> F/# {fNum:0.2.f}')
         return fNum, err, fNumMin, fNumMax
 
 
@@ -396,6 +439,7 @@ class lensIQ():
 
         # save the results
         self.updateEngValues('zoomStep', zoomStep)
+        log.info(f'FL {FL:0.2f} -> zoom step {zoomStep}')
         return zoomStep, err
 
     # calculate focus motor step from object distance and zoom step
@@ -438,11 +482,13 @@ class lensIQ():
             float(OD)
         except:
             # OD is not a number
+            log.info(f'OD is not a number ({OD})')
             return None, lensIQ.ERR_NAN
 
         # extract the focus/zoom tracking polynomial data and interpolate to OD
         if OD == 0:
             # OD not set
+            log.info('OD is not set')
             return 0, lensIQ.ERR_OD_VALUE
         invOD = 1000 / OD
         focusStep = int(self.interpolate(self.calData['tracking']['coef'], self.calData['tracking']['cp1'], invOD, zoomStep))
@@ -460,6 +506,7 @@ class lensIQ():
 
         # save the results
         self.updateEngValues('focusStep', focusStep)
+        log.info(f'Tracking curve: zoom step {zoomStep}, focus step {focusStep} at OD {OD:0.2f}')
         return focusStep, err
 
     # calculate object distance from focus motor step
@@ -537,6 +584,7 @@ class lensIQ():
         
         # save the results
         self.updateEngValues('irisStep', irisStep)
+        log.info(f'NA {NA:0.3f} -> iris step {irisStep} at FL {FL:0.2f}')
         return irisStep, err
 
     # calcualted the iris motor step from F/#
@@ -631,7 +679,7 @@ class lensIQ():
             # calculate focus step using focus/zoom curve
             focusStep, err = self.OD2FocusStep(OD, zoomStep, BFL)
         self.updateEngValues('focusStep', focusStep)
-
+        log.info(f'AOV {AOV:0.2f} -> zoom step {zoomStep}, focus step {focusStep}')
         return focusStep, zoomStep, FLValue, err
 
     # field of view to motor steps
@@ -808,6 +856,7 @@ class lensIQ():
         '''
         self.engValues['tsLatest'] += 1
         self.updateEngValues('zoomStep', zoomStep)
+        log.info('Update after zoom: FL, FOV, DOF, Iris')
 
         # set the new focal length 
         FL, _err, _flMin, _flMax = self.zoomStep2FL(zoomStep)
@@ -836,6 +885,7 @@ class lensIQ():
         '''
         self.engValues['tsLatest'] += 1
         self.updateEngValues('focusStep', focusStep)
+        log.info('Update after focus: OD, FOV, DOF')
 
         # calculate the object distance
         if updateOD:
@@ -862,6 +912,7 @@ class lensIQ():
         '''
         self.engValues['tsLatest'] += 1
         self.updateEngValues('OD', OD)
+        log.info('Update after OD change: FOV, DOF')
         
         if not isinstance(OD, str) and OD > 0:
             # calculate the field of view and depth of field
@@ -883,6 +934,7 @@ class lensIQ():
         '''
         self.engValues['tsLatest'] += 1
         self.updateEngValues('irisStep', irisStep)
+        log.info('Update after iris, DOF')
 
         # calculate F/# and numeric aperture
         self.irisStep2FNum(irisStep, self.engValues['FL']['value'])
@@ -919,6 +971,7 @@ class lensIQ():
             return 0
         # calculate the correction step for the focal length
         correctionValue = nppp.polyval(FL, self.BFLCorrectionCoeffs)
+        log.debug(f'Focus step correction {correctionValue} at FL {FL:0.2f}')
         return int(correctionValue)
 
     # store data points for BFL correction
@@ -998,6 +1051,7 @@ class lensIQ():
         '''
         # save the focus shift amount
         self.BFLCorrectionValues.append([FL, focusDelta, OD])
+        log.debug(f'Add BFL correction {len(self.BFLCorrectionValues)}: FL {FL:0.2f}, delta steps {focusDelta}')
 
         # re-fit the data
         self.fitBFLCorrection()

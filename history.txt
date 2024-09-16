@@ -2,6 +2,8 @@
 Function removeBFLCorrectionByIndex to allow removing all data points
 
 # revision history
+v.1.5.0 240913 added logging to the IDE console 
+                added loadDataFile(), addBFLCorrectionByFL(), addBFLCorrectionByZoomStep() functions 
 v.1.4.0 240822 added calcFOV() to calculate min/max FOV limits based on OD, sensorWd
                 reversed FOV and AOV min/max, (inverse to focal length)
     v.1.3.2 240806 updated license agreement

@@ -57,7 +57,7 @@ LICENSEE agrees to indemnify, hold harmless, and defend LICENSOR from and agains
 
 9. UPDATES
 
-LICENSOR is under no obligation under this License to provide any patches, fixes, subsequent versions, upgrades, or support (collectively “UPDATES”) for the SOFTWARE or documentation. The SOFTWARE and documentation is subject to modification and/or change without notice to LICENSEE. UPDATES of the SOFTWARE or documentation may be created or issued by LICENSOR from time to time at its sole option, and LICENSOR may make such UPDATES available to LICENSEE and other customers non-exclusively.
+SOFTWARE is provided "as-is" and may contain bugs (please report these to Theia) which could limit or prevent functionality in the LICENSEE's application.  LICENSOR is under no obligation under this License to provide any patches, fixes, subsequent versions, upgrades, or support (collectively “UPDATES”) for the SOFTWARE or documentation. The SOFTWARE and documentation is subject to modification and/or change without notice to LICENSEE. UPDATES of the SOFTWARE or documentation may be created or issued by LICENSOR from time to time at its sole option, and LICENSOR may make such UPDATES available to LICENSEE and other customers non-exclusively.
 
 10. TERMINATION
 
