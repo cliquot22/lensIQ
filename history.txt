@@ -2,6 +2,8 @@
 Function removeBFLCorrectionByIndex to allow removing all data points
 
 # revision history
+    v.1.5.1 240919 updated examples to work with v.1.5.0
+                bug: log formatting errors in irisStep2FNum and irisStep2NA
 v.1.5.0 240913 added logging to the IDE console 
                 added loadDataFile(), addBFLCorrectionByFL(), addBFLCorrectionByZoomStep() functions 
 v.1.4.0 240822 added calcFOV() to calculate min/max FOV limits based on OD, sensorWd

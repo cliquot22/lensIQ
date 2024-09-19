@@ -1,12 +1,14 @@
 # This is for internal testing.  The BFL calibration data points are passed to the initialBFLValues function which
 # does the fit.  Normally BFL values are selected by the user but these are already known.  
+# (updated for v.1.5.0)
 
-import logging as log
-log.basicConfig(level=log.DEBUG, format='%(levelname)-7s ln:%(lineno)-4d %(module)-18s  %(message)s')
+import logging
 from typing import Tuple
-
 import lensIQ
-import lensIQ.defaultCalData as lensIQData
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename, askopenfilenames, askdirectory
+import json
+
 ### From Theia_lensIQ_GUI
 class BFLClass(): 
     SELECTED_POINT_MAX_DIST = 0.0007        # graph point selection maximum distance from selected point
@@ -49,10 +51,24 @@ class BFLClass():
             self.calibrationOD = self.lensIQ.BFLCorrectionValues[0][2]
 
 
+log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)-7s ln:%(lineno)-4d %(module)-18s  %(message)s')
 
 lensIQ = lensIQ.lensIQ()
-BFL = BFLClass.BFLClass(lensIQ)
-lensIQ.loadData(lensIQData.loadDefaultData("TW90"))
+BFL = BFLClass(lensIQ)
+
+# read the default lens data
+def openFile():
+    Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
+    filename = askopenfilename(defaultextension='.json', filetypes=[('JSON File', '.json')], title="Open data files") # show an "Open" dialog box and return the path to the selected file
+    log.info("Opening lens data file: {}".format(filename))
+
+    with open(filename, 'r') as f:
+        data = json.load(f)
+    return data
+defaultData = openFile()
+
+lensIQ.loadData(defaultData)
 BFLValuesAveCal = [
     [46.0584305176243,-219.930009238369,2.5],
     [38.9823265477265,-87.8432872397962,2.5],

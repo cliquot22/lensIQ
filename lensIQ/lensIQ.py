@@ -367,7 +367,7 @@ class lensIQ():
 
         # save the results
         self.updateEngValues('NA', NA, NAMin, NAMax)
-        log.info(f'Iris step {irisStep} -> NA {NA:0.3.f}')
+        log.info(f'Iris step {irisStep} -> NA {NA:0.3f}')
         return NA, err, NAMin, NAMax
 
     # calculate the F/# from the iris motor step
@@ -391,7 +391,7 @@ class lensIQ():
 
         # save the results
         self.updateEngValues('FNum', fNum, fNumMin, fNumMax)
-        log.info(f'Iris step {irisStep} -> F/# {fNum:0.2.f}')
+        log.info(f'Iris step {irisStep} -> F/# {fNum:0.2f}')
         return fNum, err, fNumMin, fNumMax
 
 
