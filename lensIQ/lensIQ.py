@@ -10,7 +10,7 @@ import json
 
 # create a logger instance for this module
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.WARNING)
 log.addHandler(logging.NullHandler())
 
 # These functions are ease of use functions for setting and getting motor step positions
@@ -224,6 +224,15 @@ class lensIQ():
             self.sensorWd = width * self.sensorRatio
         return lensIQ.OK
 
+    # Clear engineering values
+    def clearEngValues(self):        
+        self.engValues['tsLatest'] += 1
+        ts = self.engValues['tsLatest']
+        for f in ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA', 'zoomStep', 'focusStep', 'irisStep']:
+            self.engValues[f] = {'value':0, 'min':0, 'max':0, 'ts':ts}
+        self.engValues['OD']['min'] = self.OD_MIN_DEFAULT
+        self.engValues['OD']['max'] = self.INFINITY
+
 
     ### ----------------------------------------------- ###
     ### convert motor step numbers to engineering units ###
@@ -332,7 +341,7 @@ class lensIQ():
     def irisStep2NA(self, irisStep:int, FL:float, rangeLimit:bool=True) -> Tuple[float, str, float, float]:
         '''
         Calculate the numeric aperture from iris motor step. 
-        If the calculated numeric aperture (NA) is outside the range, return the calculated value but set the note error
+        If the calculated numeric aperture (NA) is outside the range, return the calculated value but set the note error 
         to indicate min/max exceeded. 
         ### input
         - irisStep: iris motor step number
@@ -374,7 +383,7 @@ class lensIQ():
     def irisStep2FNum(self, irisStep:int, FL:float, returnNA:bool=False) -> Tuple[float, str, float, float]:
         '''
         Calculate the F/# from the iris motor step.  
-        Calculations are propogated using numeric aperture to avoid division by zero so this
+        Calculations are propogated using numeric aperture to avoid division by zero so this 
         function calculates NA first and inverts the results. 
         ### input
         - irisStep: iris motor step number
@@ -971,6 +980,12 @@ class lensIQ():
             return 0
         # calculate the correction step for the focal length
         correctionValue = nppp.polyval(FL, self.BFLCorrectionCoeffs)
+
+        # calculate correction value for object distance
+        #ODCorrection = self.ODFL2FocusStep(OD, FL, 0)
+        #log.debug(f'  Focus step correction for BFL {correctionValue} and OD {ODCorrection}') ###############
+        #correctionValue += ODCorrection
+
         log.debug(f'Focus step correction {correctionValue} at FL {FL:0.2f}')
         return int(correctionValue)
 
@@ -1051,7 +1066,7 @@ class lensIQ():
         '''
         # save the focus shift amount
         self.BFLCorrectionValues.append([FL, focusDelta, OD])
-        log.debug(f'Add BFL correction {len(self.BFLCorrectionValues)}: FL {FL:0.2f}, delta steps {focusDelta}')
+        log.debug(f'Add BFL correction point {len(self.BFLCorrectionValues)}: FL {FL:0.2f}, delta steps {focusDelta}')
 
         # re-fit the data
         self.fitBFLCorrection()

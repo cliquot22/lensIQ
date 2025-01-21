@@ -13,7 +13,7 @@ And there are other calculations as well.  Refer to the [wiki](https://github.co
 # Quick start
 The software module can be loaded into Python using pip:  
 `pip install lensIQ`  
-Once installed, it is required to initialize the class before using any functions.  This is done by importing and then loading the default lens data.  In this example, Theia's TL1250P IQ lens ("TW90") data will be used.  (Note: "TW90" is the serial number prefix for this lens model.)
+Once installed, it is required to initialize the class before using any functions.  This is done by importing and then loading the default lens data.  
 ``` 
 import lensIQ
 
@@ -22,7 +22,7 @@ def app():
     IQ = lensIQ.lensIQ()
 
     # read the default lens data
-    success = lensIQ.loadDataFile(JSON_formatted_data_file_path)
+    success = lensIQ.loadDataFile(JSON_formatted_data)
 ```   
 After initializing it is possible to use the functions to convert from engineering units to motor steps and back.  The zoom motor step can be calculated from a requested focal length.  And the focus motor step can be calcualted from a requested object distance at that set focal length.  
 ``` 
@@ -67,7 +67,7 @@ Functions that set or get the focus motor position will used this BFL correction
 
 # License
 Theia Technologies proprietary license
-Copyright 2023-2024 Theia Technologies
+Copyright 2023-2025 Theia Technologies
 
 # Contact information
 For more information contact: 
@@ -75,4 +75,4 @@ Mark Peterson at Theia Technologies
 [mpeterson@theiatech.com](mailto://mpeterson@theiatech.com)
 
 # Revision
-v.1.5.1
+v.1.6.0
