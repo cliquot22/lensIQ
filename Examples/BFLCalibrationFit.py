@@ -3,7 +3,6 @@
 # (updated for v.1.5.0)
 
 import logging
-from typing import Tuple
 import lensIQ
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename, askopenfilenames, askdirectory
@@ -38,7 +37,7 @@ class BFLClass():
         self.calibrationOD = 0
 
     # store the initial BFL values and calculate coefficients
-    def initialBFLValues(self, BFLPoints:Tuple=[]):
+    def initialBFLValues(self, BFLPoints:tuple=[]):
         '''
         Store the initial BFL values adn create the BFL coefficients if there are none alreay existing
         ### input:

@@ -4,7 +4,6 @@
 import numpy.polynomial.polynomial as nppp
 import numpy as np
 from scipy import optimize
-from typing import Tuple
 import logging
 import json
 
@@ -239,7 +238,7 @@ class lensIQ():
     ### ----------------------------------------------- ###
 
     # calculate the focal length from zoom step
-    def zoomStep2FL(self, zoomStep:int) -> Tuple[float, str, float, float]:
+    def zoomStep2FL(self, zoomStep:int) -> tuple[float, str, float, float]:
         '''
         Calculate the focal length from zoom step number. 
         If the calculated focal length is outside the min/max range the value may not be accurate due to curve
@@ -269,12 +268,12 @@ class lensIQ():
             err = lensIQ.ERR_FL_MAX
         
         # save the results
-        self.updateEngValues('FL', FL, flMin, flMax)
+        self._updateEngValues('FL', FL, flMin, flMax)
         log.info(f'Zoom step {zoomStep} -> FL {FL:0.2f}')
         return FL, err, flMin, flMax
 
     # calculate the object distance from the focus step
-    def focusStep2OD(self, focusStep:int, zoomStep:int, BFL:int=0) -> Tuple[float, str, float, float]:
+    def focusStep2OD(self, focusStep:int, zoomStep:int, BFL:int=0) -> tuple[float, str, float, float]:
         '''
         Calculate the object distance from the focus step.  
         If the calculated OD is not close to the nomial range, return out of bounds errors or else
@@ -333,12 +332,12 @@ class lensIQ():
                 err = lensIQ.ERR_OD_MIN
 
         # save the results
-        self.updateEngValues('OD', OD, ODMin, ODMax)
+        self._updateEngValues('OD', OD, ODMin, ODMax)
         log.info(f'Focus step {focusStep} -> OD {OD}')
         return OD, err, ODMin, ODMax
 
     # calculate the numeric aperture from iris motor step
-    def irisStep2NA(self, irisStep:int, FL:float, rangeLimit:bool=True) -> Tuple[float, str, float, float]:
+    def irisStep2NA(self, irisStep:int, FL:float, rangeLimit:bool=True) -> tuple[float, str, float, float]:
         '''
         Calculate the numeric aperture from iris motor step. 
         If the calculated numeric aperture (NA) is outside the range, return the calculated value but set the note error 
@@ -354,11 +353,11 @@ class lensIQ():
         if 'AP' not in self.calData.keys(): return 0, lensIQ.ERR_NO_CAL, 0, 0
 
         # extract data from calibration data file
-        NA = self.interpolate(self.calData['AP']['coef'], self.calData['AP']['cp1'], FL, irisStep)
+        NA = self._interpolate(self.calData['AP']['coef'], self.calData['AP']['cp1'], FL, irisStep)
 
         # calculate min/max values
-        NAMin = self.interpolate(self.calData['AP']['coef'], self.calData['AP']['cp1'], FL, self.calData['irisSteps'])
-        NAMax = self.interpolate(self.calData['AP']['coef'], self.calData['AP']['cp1'], FL, 0)
+        NAMin = self._interpolate(self.calData['AP']['coef'], self.calData['AP']['cp1'], FL, self.calData['irisSteps'])
+        NAMax = self._interpolate(self.calData['AP']['coef'], self.calData['AP']['cp1'], FL, 0)
 
         # validate the results
         NAMaxCal = (1/(2 * self.calData['fnum']))
@@ -375,12 +374,12 @@ class lensIQ():
             if rangeLimit: NA = NAMin
 
         # save the results
-        self.updateEngValues('NA', NA, NAMin, NAMax)
+        self._updateEngValues('NA', NA, NAMin, NAMax)
         log.info(f'Iris step {irisStep} -> NA {NA:0.3f}')
         return NA, err, NAMin, NAMax
 
     # calculate the F/# from the iris motor step
-    def irisStep2FNum(self, irisStep:int, FL:float, returnNA:bool=False) -> Tuple[float, str, float, float]:
+    def irisStep2FNum(self, irisStep:int, FL:float, returnNA:bool=False) -> tuple[float, str, float, float]:
         '''
         Calculate the F/# from the iris motor step.  
         Calculations are propogated using numeric aperture to avoid division by zero so this 
@@ -394,12 +393,12 @@ class lensIQ():
         '''
         if 'AP' not in self.calData.keys(): return 0, lensIQ.ERR_NO_CAL, 0, 0
         NA, err, NAMin, NAMax = self.irisStep2NA(irisStep, FL)
-        fNum = self.NA2FNum(NA)
-        fNumMin = self.NA2FNum(NAMin)
-        fNumMax = self.NA2FNum(NAMax)
+        fNum = self._NA2FNum(NA)
+        fNumMin = self._NA2FNum(NAMin)
+        fNumMax = self._NA2FNum(NAMax)
 
         # save the results
-        self.updateEngValues('FNum', fNum, fNumMin, fNumMax)
+        self._updateEngValues('FNum', fNum, fNumMin, fNumMax)
         log.info(f'Iris step {irisStep} -> F/# {fNum:0.2f}')
         return fNum, err, fNumMin, fNumMax
 
@@ -409,7 +408,7 @@ class lensIQ():
     ### ----------------------------------------------- ###
 
     # calculate the zoom step from the focal length
-    def FL2ZoomStep(self, FL:float) -> Tuple[int, str]:
+    def FL2ZoomStep(self, FL:float) -> tuple[int, str]:
         '''
         Calculate the zoom step from the focal length. 
         Keep the zoom step in the available range.
@@ -447,12 +446,12 @@ class lensIQ():
             zoomStep = zoomStepMax
 
         # save the results
-        self.updateEngValues('zoomStep', zoomStep)
+        self._updateEngValues('zoomStep', zoomStep)
         log.info(f'FL {FL:0.2f} -> zoom step {zoomStep}')
         return zoomStep, err
 
     # calculate focus motor step from object distance and zoom step
-    def zoomStep2FocusStep(self, zoomStep:int, OD:float, BFL:int=0) -> Tuple[int, str]:
+    def zoomStep2FocusStep(self, zoomStep:int, OD:float, BFL:int=0) -> tuple[int, str]:
         '''
         Calculate focus motor step from object distance and zoom step. 
         The focus motor step number will be limited to the available range.
@@ -471,7 +470,7 @@ class lensIQ():
         return focusStep, err
     
     # calculate focus motor step from object distance and zoom step (alternate)
-    def OD2FocusStep(self, OD:float, zoomStep:int, BFL:int=0) -> Tuple[int, str]:
+    def OD2FocusStep(self, OD:float, zoomStep:int, BFL:int=0) -> tuple[int, str]:
         '''
         Calculate focus motor step from object distance and zoom step. 
         The focus motor step number will be limited to the available range.
@@ -500,7 +499,7 @@ class lensIQ():
             log.info('OD is not set')
             return 0, lensIQ.ERR_OD_VALUE
         invOD = 1000 / OD
-        focusStep = int(self.interpolate(self.calData['tracking']['coef'], self.calData['tracking']['cp1'], invOD, zoomStep))
+        focusStep = int(self._interpolate(self.calData['tracking']['coef'], self.calData['tracking']['cp1'], invOD, zoomStep))
         focusStep += BFL
 
         # validate the result
@@ -514,12 +513,12 @@ class lensIQ():
             focusStep = focusStepMax
 
         # save the results
-        self.updateEngValues('focusStep', focusStep)
+        self._updateEngValues('focusStep', focusStep)
         log.info(f'Tracking curve: zoom step {zoomStep}, focus step {focusStep} at OD {OD:0.2f}')
         return focusStep, err
 
     # calculate object distance from focus motor step
-    def ODFL2FocusStep(self, OD:float, FL:float, BFL:int=0) -> Tuple[int, str]:
+    def ODFL2FocusStep(self, OD:float, FL:float, BFL:int=0) -> tuple[int, str]:
         '''
         Calculate the focus motor step from object distance and focal length.  
         If the zoom step is known, use OD2FocusStep instead to increase the accuracy of the prediction.  
@@ -542,7 +541,7 @@ class lensIQ():
         return focusStep, err
 
     # calculate iris step from numeric aperture
-    def NA2IrisStep(self, NA:float, FL:float) -> Tuple[int, str]:
+    def NA2IrisStep(self, NA:float, FL:float) -> tuple[int, str]:
         '''
         Calculate iris step from numeric aperture.
         If the numeric aperture is not supported for the current focal length, return the
@@ -592,12 +591,12 @@ class lensIQ():
         irisStep = int(stepValueList[0] + interpolationFactor * (stepValueList[1] - stepValueList[0]))
         
         # save the results
-        self.updateEngValues('irisStep', irisStep)
+        self._updateEngValues('irisStep', irisStep)
         log.info(f'NA {NA:0.3f} -> iris step {irisStep} at FL {FL:0.2f}')
         return irisStep, err
 
     # calcualted the iris motor step from F/#
-    def fNum2IrisStep(self, fNum:float, FL:float) -> Tuple[int, str]:
+    def fNum2IrisStep(self, fNum:float, FL:float) -> tuple[int, str]:
         '''
         Calcualte the iris motor step from F/#.
         ### input
@@ -610,13 +609,13 @@ class lensIQ():
         if 'AP' not in self.calData.keys(): return 0, lensIQ.ERR_NO_CAL
 
         # calcualte the NA
-        NA = self.FNum2NA(fNum)
+        NA = self._FNum2NA(fNum)
 
         irisStep, err = self.NA2IrisStep(NA, FL)
         return irisStep, err
 
     # Angle of view to motor steps
-    def AOV2MotorSteps(self, AOV:float, sensorWd:float, OD:float=1000000, BFL:int=0) -> Tuple[int, int, float, str]:
+    def AOV2MotorSteps(self, AOV:float, sensorWd:float, OD:float=1000000, BFL:int=0) -> tuple[int, int, float, str]:
         '''
         Angle of view to motor steps
         Calculate the zoom motor step that allows the input angle of view.  If the focal length range
@@ -674,8 +673,8 @@ class lensIQ():
 
         # calculate zoom step from focal length
         zoomStep, err = self.FL2ZoomStep(FLValue)
-        self.updateEngValues('zoomStep', zoomStep)
-        self.updateEngValues('FL', FLValue)
+        self._updateEngValues('zoomStep', zoomStep)
+        self._updateEngValues('FL', FLValue)
 
         # check if object distance is valid
         if isinstance(OD, str):
@@ -687,12 +686,12 @@ class lensIQ():
         else:
             # calculate focus step using focus/zoom curve
             focusStep, err = self.OD2FocusStep(OD, zoomStep, BFL)
-        self.updateEngValues('focusStep', focusStep)
+        self._updateEngValues('focusStep', focusStep)
         log.info(f'AOV {AOV:0.2f} -> zoom step {zoomStep}, focus step {focusStep}')
         return focusStep, zoomStep, FLValue, err
 
     # field of view to motor steps
-    def FOV2MotorSteps(self, FOV:float, IH:float, OD:float=1000000, BFL:int=0) -> Tuple[int, int, float, str]:
+    def FOV2MotorSteps(self, FOV:float, IH:float, OD:float=1000000, BFL:int=0) -> tuple[int, int, float, str]:
         '''
         Field of view to motor steps. 
         Calculate the zoom motor step that allows the field of view.  If the focal length
@@ -709,7 +708,7 @@ class lensIQ():
         'note' string value can be: ['OK' | 'no cal data' | 'out of range-min' | 'out of range-max' | 'calculation error' | 'OD value']
         '''
         if 'dist' not in self.calData.keys(): return 0, 0, 0, lensIQ.ERR_NO_CAL
-        AOV = self.FOV2AOV(FOV, OD)
+        AOV = self._FOV2AOV(FOV, OD)
         if AOV == 0:
             return 0, 0, 0, lensIQ.ERR_CALC
         focusStep, zoomStep, FLValue, err = self.AOV2MotorSteps(AOV, IH, OD, BFL)
@@ -721,7 +720,7 @@ class lensIQ():
     ### --------------------------------------- ###
 
     # calculate angle of view
-    def calcAOV(self, sensorWd:float, FL:float, saveAOV:bool=True) -> Tuple[float, str]:
+    def calcAOV(self, sensorWd:float, FL:float, saveAOV:bool=True) -> tuple[float, str]:
         '''
         Calculate angle of view (full angle).  Optionally update the engineering values data structure.  
         ### input
@@ -736,15 +735,15 @@ class lensIQ():
         semiWd = sensorWd / 2
 
         # extract the object angle value
-        semiAOV = abs(self.interpolate(self.calData['dist']['coef'], self.calData['dist']['cp1'], FL, semiWd))
+        semiAOV = abs(self._interpolate(self.calData['dist']['coef'], self.calData['dist']['cp1'], FL, semiWd))
         AOV = 2 * semiAOV
 
         # save the results
-        if saveAOV: self.updateEngValues('AOV', AOV)
+        if saveAOV: self._updateEngValues('AOV', AOV)
         return AOV, lensIQ.OK
     
     # calculate the AOV limits for the lens (minimum and maximum)
-    def calcAOVLimits(self) -> Tuple[float, float, str]:
+    def calcAOVLimits(self) -> tuple[float, float, str]:
         '''
         Calculate the AOV limits for the lens (minimum and maximum). AOV is related to focal length.  
         'flMin' and 'flMax' are read from the calibration lens data or default calibration data.  
@@ -764,7 +763,7 @@ class lensIQ():
         return self.engValues['AOV']['min'], self.engValues['AOV']['max'], lensIQ.OK
 
     # calculate field of view
-    def calcFOV(self, sensorWd:float, FL:float, OD:float=1000000, saveFOV:bool=True) -> Tuple[float, str]:
+    def calcFOV(self, sensorWd:float, FL:float, OD:float=1000000, saveFOV:bool=True) -> tuple[float, str]:
         '''
         Calculate the full field of view width (in meters). Optionally update the engineering units data structure.  
         ### input
@@ -783,11 +782,11 @@ class lensIQ():
         FOV = 2 * OD * np.tan(np.radians(AOV / 2))
         
         # save the results
-        if saveFOV: self.updateEngValues('FOV', FOV)
+        if saveFOV: self._updateEngValues('FOV', FOV)
         return FOV, lensIQ.OK
     
     # calculate the FOV limits for the lens (minimum and maximum)
-    def calcFOVLimits(self) -> Tuple[float, float, str]:
+    def calcFOVLimits(self) -> tuple[float, float, str]:
         '''
         Calculate the FOV limits for the lens (minimum and maximum). FOV is related to focal length and object distance.  
         'flMin' and 'flMax' are read from the calibration lens data or default calibration data.  
@@ -807,7 +806,7 @@ class lensIQ():
         return self.engValues['FOV']['min'], self.engValues['FOV']['max'], lensIQ.OK
 
     # calcualte depth of field
-    def calcDOF(self, irisStep:int, FL:float, OD:float=1000000) -> Tuple[float, str, float, float]:
+    def calcDOF(self, irisStep:int, FL:float, OD:float=1000000) -> tuple[float, str, float, float]:
         '''
         Calcualte depth of field.
         Calcualte the minimum and maximum object distances.  The difference is the depth of field.
@@ -824,7 +823,7 @@ class lensIQ():
         if OD >= lensIQ.INFINITY: return lensIQ.INFINITY, lensIQ.OK, lensIQ.INFINITY, lensIQ.INFINITY
 
         # extract the aperture size
-        shortDiameter = self.interpolate(self.calData['iris']['coef'], self.calData['iris']['cp1'], FL, irisStep)
+        shortDiameter = self._interpolate(self.calData['iris']['coef'], self.calData['iris']['cp1'], FL, irisStep)
 
         # calculate the magnification
         OD = max(0.001, OD)
@@ -843,7 +842,7 @@ class lensIQ():
             DOF = ODMax - ODMin
 
         # save the results
-        self.updateEngValues('DOF', DOF, ODMin, ODMax)
+        self._updateEngValues('DOF', DOF, ODMin, ODMax)
         return DOF, lensIQ.OK, ODMin, ODMax
     
     ### -------------------------------------- ###
@@ -864,7 +863,7 @@ class lensIQ():
         none
         '''
         self.engValues['tsLatest'] += 1
-        self.updateEngValues('zoomStep', zoomStep)
+        self._updateEngValues('zoomStep', zoomStep)
         log.info('Update after zoom: FL, FOV, DOF, Iris')
 
         # set the new focal length 
@@ -893,13 +892,13 @@ class lensIQ():
         none
         '''
         self.engValues['tsLatest'] += 1
-        self.updateEngValues('focusStep', focusStep)
+        self._updateEngValues('focusStep', focusStep)
         log.info('Update after focus: OD, FOV, DOF')
 
         # calculate the object distance
         if updateOD:
             OD, _err, ODMin, ODMax= self.focusStep2OD(focusStep, self.engValues['zoomStep']['value'])
-            self.updateEngValues('OD', OD, ODMin, ODMax)
+            self._updateEngValues('OD', OD, ODMin, ODMax)
         else:
             OD = self.engValues['OD']['value']
 
@@ -920,7 +919,7 @@ class lensIQ():
         none
         '''
         self.engValues['tsLatest'] += 1
-        self.updateEngValues('OD', OD)
+        self._updateEngValues('OD', OD)
         log.info('Update after OD change: FOV, DOF')
         
         if not isinstance(OD, str) and OD > 0:
@@ -942,7 +941,7 @@ class lensIQ():
         none
         '''
         self.engValues['tsLatest'] += 1
-        self.updateEngValues('irisStep', irisStep)
+        self._updateEngValues('irisStep', irisStep)
         log.info('Update after iris, DOF')
 
         # calculate F/# and numeric aperture
@@ -1133,7 +1132,7 @@ class lensIQ():
     ### ----------------- ###
 
     # calculate F/# from NA
-    def NA2FNum(self, NA:float) -> float:
+    def _NA2FNum(self, NA:float) -> float:
         '''
         Calculate F/# from NA. 
         Use the simple inversion formula.  
@@ -1147,7 +1146,7 @@ class lensIQ():
         return 1 / (2 * NA)
 
     # calculate NA from F/#
-    def FNum2NA(self, fNum:float) -> float:
+    def _FNum2NA(self, fNum:float) -> float:
         '''
         Calculate NA from F/#. 
         Use the simple inversion formula.  
@@ -1161,7 +1160,7 @@ class lensIQ():
         return 1 / (2 * fNum)
 
     # calcualte angle of view from field of view
-    def FOV2AOV(self, FOV:float, OD:float=1000000) -> float:
+    def _FOV2AOV(self, FOV:float, OD:float=1000000) -> float:
         '''
         Calcualte angle of view from field of view.
         ### input
@@ -1177,7 +1176,7 @@ class lensIQ():
         return AOV
     
     # store data in the lensConfig structure
-    def updateEngValues(self, key:str, value:Tuple[float, int, str], min:Tuple[float, int]=None, max:Tuple[float, int]=None):
+    def _updateEngValues(self, key:str, value:tuple[float, int, str], min:tuple[float, int]=None, max:tuple[float, int]=None):
         '''
         Store data in the lensConfig list structure.
         ### input
@@ -1196,7 +1195,7 @@ class lensIQ():
         return 
 
     # interpolate/ extrapolate between two values of control points
-    def interpolate(self, coefList:list, cp1List:list, cp1Target:float, xValue:float) -> float:
+    def _interpolate(self, coefList:list, cp1List:list, cp1Target:float, xValue:float) -> float:
         '''
         Interpolate/ extrapolate between two values of control points. 
         This function has coefficients for a polynomial curve at each of the control points cp1.
