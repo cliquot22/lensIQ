@@ -119,9 +119,10 @@ class lensIQ():
         # 'OD' can be string error 'NA (near)' or 'NA (far)' as well as float value. 
         # DOFMin and DOFMax are the min and max object distances that are in the depth of field. 
         # Also, the current motor steps are stored.  These are used for the calcuations.  
-        self.engValues = {'tsLatest': 0}
+        self.engValues = {}
+        self.engValues['tsLatest'] = 0
         for f in ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA', 'zoomStep', 'focusStep', 'irisStep']:
-            self.engValues[f] = {'value':0, 'min':0, 'max':0, 'ts':0}
+            self.engValues[f] = {'value': 0, 'min': 0, 'max': 0, 'ts': 0}
         self.engValues['OD']['min'] = self.OD_MIN_DEFAULT
         self.engValues['OD']['max'] = self.INFINITY
         log.info('lensIQ class initilized')
@@ -228,7 +229,7 @@ class lensIQ():
         self.engValues['tsLatest'] += 1
         ts = self.engValues['tsLatest']
         for f in ['AOV', 'FOV', 'DOF', 'FL', 'OD', 'FNum', 'NA', 'zoomStep', 'focusStep', 'irisStep']:
-            self.engValues[f] = {'value':0, 'min':0, 'max':0, 'ts':ts}
+            self.engValues[f] = {'value': 0, 'min': 0, 'max': 0, 'ts': ts}
         self.engValues['OD']['min'] = self.OD_MIN_DEFAULT
         self.engValues['OD']['max'] = self.INFINITY
 
@@ -273,7 +274,7 @@ class lensIQ():
         return FL, err, flMin, flMax
 
     # calculate the object distance from the focus step
-    def focusStep2OD(self, focusStep:int, zoomStep:int, BFL:int=0) -> tuple[float, str, float, float]:
+    def focusStep2OD(self, focusStep:int, zoomStep:int, BFL:int=0) -> tuple[float | str, str, float, float]:
         '''
         Calculate the object distance from the focus step.  
         If the calculated OD is not close to the nomial range, return out of bounds errors or else
@@ -305,19 +306,19 @@ class lensIQ():
             focusStepList.append(nppp.polyval(zoomStep, coefList[cp1]) + BFL)
 
         # validate the focus step to make sure it is within the valid focus range
-        err = lensIQ.OK
-        OD = 0
+        note = lensIQ.OK
+        OD = 0.0
         ODMin = self.calData['odMin'] if 'odMin' in self.calData.keys() else lensIQ.OD_MIN_DEFAULT
         ODMax = self.calData['odMax'] if 'odMax' in self.calData.keys() else lensIQ.INFINITY
 
         #   range goes from infinity focus [0] to minimum focus [len(cp1)]
         if focusStep > focusStepList[0] + DONT_CALC_MAX_OVER:
             # likely outside valid focus range
-            err = lensIQ.ERR_OD_MAX
+            note = lensIQ.ERR_OD_MAX
             OD = 'NA (far)'
         elif focusStep < focusStepList[-1] - DONT_CALC_MIN_UNDER:
             # likely outside valid focus range
-            err = lensIQ.ERR_OD_MIN
+            note = lensIQ.ERR_OD_MIN
             OD = 'NA (near)'
         else:
             # fit the focusStepList/cp1List to find the object distance
@@ -326,15 +327,15 @@ class lensIQ():
             # validate OD
             if OD < 0:
                 # points >infinity are calculaed as negative
-                err = lensIQ.ERR_OD_MAX
+                note = lensIQ.ERR_OD_MAX
                 OD = self.INFINITY
             elif OD < ODMin:
-                err = lensIQ.ERR_OD_MIN
+                note = lensIQ.ERR_OD_MIN
 
         # save the results
         self._updateEngValues('OD', OD, ODMin, ODMax)
         log.info(f'Focus step {focusStep} -> OD {OD}')
-        return OD, err, ODMin, ODMax
+        return OD, note, ODMin, ODMax
 
     # calculate the numeric aperture from iris motor step
     def irisStep2NA(self, irisStep:int, FL:float, rangeLimit:bool=True) -> tuple[float, str, float, float]:
@@ -491,7 +492,7 @@ class lensIQ():
         except:
             # OD is not a number
             log.info(f'OD is not a number ({OD})')
-            return None, lensIQ.ERR_NAN
+            return 0, lensIQ.ERR_NAN
 
         # extract the focus/zoom tracking polynomial data and interpolate to OD
         if OD == 0:
@@ -634,18 +635,18 @@ class lensIQ():
         if 'dist' not in self.calData.keys(): return 0, 0, 0, lensIQ.ERR_NO_CAL
 
         # get the maximum angle of view for each focal length in the calibration data file
-        FLLower = None
-        FLUpper = None
+        FLLower = []
+        FLUpper = []
         FLList = np.sort(self.calData['dist']['cp1'])
         for FL in FLList:
             AOVMax, _err = self.calcAOV(sensorWd, FL)
             if AOVMax > AOV:
                 FLLower = [FL, AOVMax]
-            elif FLUpper == None:
+            elif FLUpper == 0:
                 FLUpper = [FL, AOVMax]
 
         # check if AOV is greater than maximum AOV for the lens (not wide angle enough)
-        if FLLower == None:
+        if FLLower == []:
             # re-calculate to extrapolate focal length
             FLLower = FLUpper
             FL = FLList[1]
@@ -653,7 +654,7 @@ class lensIQ():
             FLUpper = [FL, AOVMax]
 
         # check if AOV is less than the minimum AOV for the lens (not telephoto enough)
-        if FLUpper == None:
+        if FLUpper == []:
             # recalcualte to extrapolate focal length
             FLUpper = FLLower
             FL = FLList[-2]
@@ -1176,7 +1177,7 @@ class lensIQ():
         return AOV
     
     # store data in the lensConfig structure
-    def _updateEngValues(self, key:str, value:tuple[float, int, str], min:tuple[float, int]=None, max:tuple[float, int]=None):
+    def _updateEngValues(self, key:str, value:(float | int | str), min:(float | int)=0, max:(float | int)=0):
         '''
         Store data in the lensConfig list structure.
         ### input

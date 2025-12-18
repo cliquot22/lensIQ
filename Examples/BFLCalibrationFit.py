@@ -37,7 +37,7 @@ class BFLClass():
         self.calibrationOD = 0
 
     # store the initial BFL values and calculate coefficients
-    def initialBFLValues(self, BFLPoints:tuple=[]):
+    def initialBFLValues(self, BFLPoints:list=[]):
         '''
         Store the initial BFL values adn create the BFL coefficients if there are none alreay existing
         ### input:
