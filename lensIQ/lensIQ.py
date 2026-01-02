@@ -1113,11 +1113,11 @@ class lensIQ():
         if len(self.BFLCorrectionValues) == 1:
             # single data point, constant offset
             self.BFLCorrectionCoeffs = xy[1]
-        elif len(self.BFLCorrectionValues) <= 3:
-            # linear fit for up to 3 data points
+        elif len(self.BFLCorrectionValues) <= 2:
+            # linear fit for up to 2 data points
             self.BFLCorrectionCoeffs = nppp.polyfit(xy[0], xy[1], 1)
         else:
-            # quadratic fit for > 3 data points
+            # quadratic fit for >= 3 data points
             self.BFLCorrectionCoeffs = nppp.polyfit(xy[0], xy[1], 2)
 
     # reset BFL correction

@@ -2,6 +2,7 @@
 Function removeBFLCorrectionByIndex to allow removing all data points
 
 # revision history
+    v.1.6.3 260102 changed fit degree in fitBFLCorrection for BFL fit calculations 
     v.1.6.2 251218 corrected some typing errors 
     v.1.6.1 250414 removed depricated typing module. requires Python >3.10
 v.1.6.0 250117 added clearEngValues() function
